@@ -1,0 +1,4 @@
+{
+  "_LogPath": "Emplacement des fichiers des logs (1 fichier par jour, sur 7 jours roulants)",
+  "LogPath": "./"
+}

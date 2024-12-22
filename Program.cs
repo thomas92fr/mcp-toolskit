@@ -1,4 +1,5 @@
 ﻿using mcp_toolskit.Handlers;
+using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.NET.Core.Models.Protocol.Common;
@@ -12,6 +13,14 @@ namespace mcp_toolskit
     /// </summary>
     internal class Program
     {
+        public static string GetCurrentLogFileName(string logPath)
+        {
+            string baseFileName = "Logs";
+            string date = DateTime.Now.ToString("yyyyMMdd");
+            return Path.Combine(logPath, $"{baseFileName}{date}.txt");
+        }
+
+
         /// <summary>
         /// Point d'entrée principal de l'application. Configure et démarre le serveur MCP.
         /// </summary>
@@ -28,12 +37,25 @@ namespace mcp_toolskit
         /// </remarks>
         static async Task Main(string[] args)
         {
+            // Chargement de la configuration
+            string? errorMessage;
+            var appConfig = AppConfig.GetConfiguration(args.Length > 0 ? args[0] : null, out errorMessage);
+
+            if (errorMessage != null)
+            {
+                Console.Error.WriteLine(errorMessage);
+            }
+
+            Console.Error.WriteLine("Configuration chargée :");
+            Console.Error.WriteLine(appConfig.ToString());
+
             // Create server info
-            string version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Version inconnue"; ;
-            string logPath = Path.Combine(AppContext.BaseDirectory, "log.txt");
+            string version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Version inconnue";
             var serverInfo = new Implementation { Name = "La boîte à outils de Toto", Version = version };
             var seriLogger = new LoggerConfiguration()
-                .WriteTo.File(logPath)
+                .WriteTo.File(Path.Combine(appConfig.LogPath,"Logs.txt"), 
+                              rollingInterval: RollingInterval.Day, 
+                              retainedFileCountLimit: 7)
                 .MinimumLevel.Debug()
                 .CreateLogger();
 
@@ -44,23 +66,27 @@ namespace mcp_toolskit
                 .AddStdioTransport()
                 .ConfigureLogging(logging => logging.AddSerilog(seriLogger).SetMinimumLevel(LogLevel.Trace))
                 .ConfigureUserServices(services =>
+                {
                     // Add logging
                     services.AddLogging(builder =>
                     {
-                        builder.ClearProviders(); // Clear existing providers
+                        builder.ClearProviders();
                         builder.AddSerilog(seriLogger, dispose: true);
                         builder.SetMinimumLevel(LogLevel.Debug);
-                    })
-                )
+                    });
+
+                    // Add configuration to DI
+                    services.AddSingleton(appConfig);
+                })
                 .ConfigureTools(tools => tools.AddHandler<CalculatorToolHandler>())
                 .Build();
 
             try
             {
                 server.Start();
-                Console.Error.WriteLine($"Serveur MCP '{serverInfo.Name}' s'exécutant sur stdio");
-                Console.Error.WriteLine($"Les logs seront écrits dans : {logPath}");
-
+                Console.Error.WriteLine($"Serveur MCP '{serverInfo.Name}' v{serverInfo.Version} s'exécutant sur stdio");
+                string currentLogFile = GetCurrentLogFileName(appConfig.LogPath);
+                Console.Error.WriteLine($"Fichier de log actuel : {currentLogFile}");
                 await Task.Delay(-1); // Wait indefinitely
             }
             finally
