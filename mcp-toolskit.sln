@@ -1,9 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35527.113 d17.12
+VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mcp-toolskit", "mcp-toolskit.csproj", "{06DADE1F-0DC8-4751-BD59-C9AFE2E47255}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mcp-toolskit", "mcp-toolskit\mcp-toolskit.csproj", "{06DADE1F-0DC8-4751-BD59-C9AFE2E47255}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mcp-toolskit-tests", "mcp-toolskit-tests\mcp-toolskit-tests.csproj", "{1CE602E6-B877-44C0-831D-0EB10A0FBB6F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{06DADE1F-0DC8-4751-BD59-C9AFE2E47255} = {06DADE1F-0DC8-4751-BD59-C9AFE2E47255}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +20,10 @@ Global
 		{06DADE1F-0DC8-4751-BD59-C9AFE2E47255}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{06DADE1F-0DC8-4751-BD59-C9AFE2E47255}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{06DADE1F-0DC8-4751-BD59-C9AFE2E47255}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CE602E6-B877-44C0-831D-0EB10A0FBB6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CE602E6-B877-44C0-831D-0EB10A0FBB6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CE602E6-B877-44C0-831D-0EB10A0FBB6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CE602E6-B877-44C0-831D-0EB10A0FBB6F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
