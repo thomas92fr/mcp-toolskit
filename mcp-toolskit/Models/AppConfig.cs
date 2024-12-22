@@ -14,6 +14,16 @@ namespace mcp_toolskit.Models
         public string LogPath { get; set; } = AppContext.BaseDirectory;
 
         /// <summary>
+        /// Liste des répertoires autorisés pour les opérations sur le système de fichiers.
+        /// </summary>
+        public string[] AllowedDirectories { get; set; } = Array.Empty<string>();
+
+        /// <summary>
+        /// Liste des outils autorisés.
+        /// </summary>
+        public string[] AllowedTools { get; set; } = Array.Empty<string>();
+
+        /// <summary>
         /// Crée une nouvelle instance de la configuration avec les valeurs par défaut.
         /// </summary>
         public AppConfig()
@@ -30,6 +40,13 @@ namespace mcp_toolskit.Models
             if (!string.IsNullOrWhiteSpace(LogPath))
             {
                 LogPath = Path.GetFullPath(LogPath, AppContext.BaseDirectory);
+            }
+
+            // Normalise les chemins des répertoires autorisés
+            if (AllowedDirectories != null)
+            {
+                AllowedDirectories = AllowedDirectories.Select(dir =>
+                    Path.GetFullPath(dir, AppContext.BaseDirectory)).ToArray();
             }
         }
 

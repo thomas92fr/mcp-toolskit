@@ -78,7 +78,12 @@ namespace mcp_toolskit
                     // Add configuration to DI
                     services.AddSingleton(appConfig);
                 })
-                .ConfigureTools(tools => tools.AddHandler<CalculatorToolHandler>())
+                .ConfigureTools(tools => {
+                    if(appConfig.AllowedTools.Contains("Calculator"))
+                        tools.AddHandler<CalculatorToolHandler>();
+                    if (appConfig.AllowedTools.Contains("Filesystem"))
+                        tools.AddHandler<FilesystemToolHandler>();
+                })
                 .Build();
 
             try
