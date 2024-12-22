@@ -23,6 +23,8 @@ public enum FilesystemOperation
     ReadMultipleFiles,
     /// <summary>Écriture dans un fichier</summary>
     WriteFile,
+    /// <summary>Écriture dans un fichier à une position spécifique</summary>
+    WriteFileAtPosition,
     /// <summary>Création d'un répertoire</summary>
     CreateDirectory,
     /// <summary>Liste le contenu d'un répertoire</summary>
@@ -31,8 +33,14 @@ public enum FilesystemOperation
     MoveFile,
     /// <summary>Recherche de fichiers</summary>
     SearchFiles,
+    /// <summary>Recherche la position d'une regex dans un fichier</summary>
+    SearchPositionInFileWithRegex,
     /// <summary>Obtention d'informations sur un fichier</summary>
     GetFileInfo,
+    /// <summary>Suppression de contenu à une position spécifique</summary>
+    DeleteAtPosition,
+    /// <summary>Recherche et remplacement de contenu via regex</summary>
+    SearchAndReplace,
     /// <summary>Liste les répertoires autorisés</summary>
     ListAllowedDirectories
 }
@@ -78,6 +86,31 @@ public class FilesystemParameters
     public string? Pattern { get; init; }
 
     /// <summary>
+    /// Position dans le fichier où insérer le contenu (pour l'opération WriteFileAtPosition)
+    /// </summary>
+    public int? Position { get; init; }
+
+    /// <summary>
+    /// Expression régulière pour la recherche (pour l'opération SearchPositionInFileWithRegex)
+    /// </summary>
+    public string? Regex { get; init; }
+
+    /// <summary>
+    /// Longueur du contenu à supprimer (pour l'opération DeleteAtPosition)
+    /// </summary>
+    public int? Length { get; init; }
+
+    /// <summary>
+    /// Contenu de remplacement (pour l'opération SearchAndReplace)
+    /// </summary>
+    public string? Replacement { get; init; }
+
+    /// <summary>
+    /// Option pour préserver la longueur du fichier en remplaçant par des espaces
+    /// </summary>
+    public bool PreserveLength { get; init; }
+
+    /// <summary>
     /// Retourne une représentation textuelle des paramètres.
     /// </summary>
     public override string ToString()
@@ -88,7 +121,12 @@ public class FilesystemParameters
         if (Source != null) sb.Append($", Source: {Source}");
         if (Destination != null) sb.Append($", Destination: {Destination}");
         if (Pattern != null) sb.Append($", Pattern: {Pattern}");
-        return sb.ToString();
+        if (Position.HasValue) sb.Append($", Position: {Position}");
+        if (Regex != null) sb.Append($", Regex: {Regex}");
+        if (Regex != null) sb.Append($", Length: {Length}");
+        if (Regex != null) sb.Append($", Replacement: {Replacement}");
+        if (Regex != null) sb.Append($", PreserveLength: {PreserveLength}");
+        return sb.ToString();        
     }
 }
 
@@ -160,6 +198,10 @@ public class FilesystemToolHandler : ToolHandlerBase<FilesystemParameters>
                 FilesystemOperation.SearchFiles => await SearchFilesAsync(parameters),
                 FilesystemOperation.GetFileInfo => await GetFileInfoAsync(parameters),
                 FilesystemOperation.ListAllowedDirectories => ListAllowedDirectories(),
+                FilesystemOperation.WriteFileAtPosition => await WriteFileAtPositionAsync(parameters),
+                FilesystemOperation.SearchPositionInFileWithRegex => await SearchPositionInFileWithRegexAsync(parameters),
+                FilesystemOperation.DeleteAtPosition => await DeleteAtPositionAsync(parameters),
+                FilesystemOperation.SearchAndReplace => await SearchAndReplaceAsync(parameters),
                 _ => throw new ArgumentException($"Unknown operation: {parameters.Operation}")
             };
 
@@ -309,6 +351,164 @@ public class FilesystemToolHandler : ToolHandlerBase<FilesystemParameters>
     private string ListAllowedDirectories()
     {
         return $"Allowed directories:\n{string.Join("\n", _allowedDirectories)}";
+    }
+
+    private async Task<string> WriteFileAtPositionAsync(FilesystemParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException("Path is required for WriteFileAtPosition operation");
+        if (string.IsNullOrEmpty(parameters.Content))
+            throw new ArgumentException("Content is required for WriteFileAtPosition operation");
+        if (!parameters.Position.HasValue)
+            throw new ArgumentException("Position is required for WriteFileAtPosition operation");
+        if (parameters.Position.Value < 0)
+            throw new ArgumentException("Position cannot be negative");
+
+        var validPath = ValidatePath(parameters.Path);
+
+        // Si le fichier n'existe pas, on le crée avec le contenu à la position 0
+        if (!File.Exists(validPath))
+        {
+           
+            await File.WriteAllTextAsync(validPath, parameters.Content);
+          
+        }
+        else
+        {
+            // Lire le contenu existant
+            var existingContent = await File.ReadAllTextAsync(validPath);
+
+            // Si la position est au-delà de la fin du fichier, on ajoute des espaces
+            if (parameters.Position.Value > existingContent.Length)
+            {
+                existingContent = existingContent.PadRight(parameters.Position.Value);
+            }
+
+            // Insérer le nouveau contenu à la position spécifiée
+            var newContent = existingContent.Insert(parameters.Position.Value, parameters.Content);
+            await File.WriteAllTextAsync(validPath, newContent);
+        }
+
+        return $"Successfully wrote content at position {parameters.Position.Value} in {parameters.Path}";
+    }
+
+    private async Task<string> SearchPositionInFileWithRegexAsync(FilesystemParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException("Path is required for SearchPositionInFileWithRegex operation");
+        if (string.IsNullOrEmpty(parameters.Regex))
+            throw new ArgumentException("Regex is required for SearchPositionInFileWithRegex operation");
+
+        var validPath = ValidatePath(parameters.Path);
+
+        // Lire le contenu du fichier
+        var content = await File.ReadAllTextAsync(validPath);
+
+        // Créer et exécuter la regex
+        var regex = new System.Text.RegularExpressions.Regex(parameters.Regex);
+        var matches = regex.Matches(content);
+
+        if (!matches.Any())
+            return "No matches found";
+
+        // Construire le résultat avec les positions de chaque occurrence
+        var results = matches.Select(match => new
+        {
+            Position = match.Index,
+            Length = match.Length,
+            Value = match.Value
+        });
+
+        return string.Join("\n", results.Select(r =>
+            $"Position: {r.Position}, Length: {r.Length}, Value: {r.Value}"));
+    }
+
+    private async Task<string> DeleteAtPositionAsync(FilesystemParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException("Path is required for DeleteAtPosition operation");
+        if (!parameters.Position.HasValue)
+            throw new ArgumentException("Position is required for DeleteAtPosition operation");
+        if (!parameters.Length.HasValue || parameters.Length.Value <= 0)
+            throw new ArgumentException("Length must be positive for DeleteAtPosition operation");
+        if (parameters.Position.Value < 0)
+            throw new ArgumentException("Position cannot be negative");
+
+        var validPath = ValidatePath(parameters.Path);
+
+        // Lire le contenu existant
+        var content = await File.ReadAllTextAsync(validPath);
+
+        if (parameters.Position.Value >= content.Length)
+            throw new ArgumentException("Position is beyond end of file");
+
+        // Calculer la longueur effective à supprimer
+        var effectiveLength = Math.Min(parameters.Length.Value, content.Length - parameters.Position.Value);
+
+        string newContent;
+        if (parameters.PreserveLength)
+        {
+            // Remplacer par des espaces si on doit préserver la longueur
+            var spaces = new string(' ', effectiveLength);
+            newContent = content.Remove(parameters.Position.Value, effectiveLength)
+                              .Insert(parameters.Position.Value, spaces);
+        }
+        else
+        {
+            // Sinon, supprimer simplement le contenu
+            newContent = content.Remove(parameters.Position.Value, effectiveLength);
+        }
+
+        await File.WriteAllTextAsync(validPath, newContent);
+
+        return $"Successfully deleted {effectiveLength} characters at position {parameters.Position.Value} in {parameters.Path}";
+    }
+
+    private async Task<string> SearchAndReplaceAsync(FilesystemParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException("Path is required for SearchAndReplace operation");
+        if (string.IsNullOrEmpty(parameters.Regex))
+            throw new ArgumentException("Regex pattern is required for SearchAndReplace operation");
+        if (string.IsNullOrEmpty(parameters.Replacement))
+            throw new ArgumentException("Replacement content is required for SearchAndReplace operation");
+
+        var validPath = ValidatePath(parameters.Path);
+
+        // Lire le contenu existant
+        var content = await File.ReadAllTextAsync(validPath);
+
+        var regex = new System.Text.RegularExpressions.Regex(parameters.Regex);
+        var matches = regex.Matches(content);
+
+        if (!matches.Any())
+            return "No matches found";
+
+        // Effectuer les remplacements
+        string newContent;
+        if (parameters.PreserveLength)
+        {
+            // Mode préservation de longueur
+            newContent = content;
+            foreach (System.Text.RegularExpressions.Match match in matches.Reverse()) // On commence par la fin pour ne pas décaler les positions
+            {
+                var replacement = parameters.Replacement.PadRight(match.Length);
+                if (replacement.Length > match.Length)
+                    replacement = replacement.Substring(0, match.Length);
+
+                newContent = newContent.Remove(match.Index, match.Length)
+                                     .Insert(match.Index, replacement);
+            }
+        }
+        else
+        {
+            // Mode remplacement normal
+            newContent = regex.Replace(content, parameters.Replacement);
+        }
+
+        await File.WriteAllTextAsync(validPath, newContent);
+
+        return $"Successfully replaced {matches.Count} occurrences in {parameters.Path}";
     }
 
     public Task<CallToolResult> TestHandleAsync(

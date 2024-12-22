@@ -79,10 +79,11 @@ namespace mcp_toolskit
                     services.AddSingleton(appConfig);
                 })
                 .ConfigureTools(tools => {
-                    if(appConfig.AllowedTools.Contains("Calculator"))
-                        tools.AddHandler<CalculatorToolHandler>();
                     if (appConfig.AllowedTools.Contains("Filesystem"))
                         tools.AddHandler<FilesystemToolHandler>();
+                    if (appConfig.AllowedTools.Contains("Calculator"))
+                        tools.AddHandler<CalculatorToolHandler>();
+                    
                 })
                 .Build();
 
