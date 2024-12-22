@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using mcp_toolskit.Models;
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
 using ModelContextProtocol.NET.Core.Models.Protocol.Common;
@@ -44,37 +46,68 @@ public class CalculatorParameters
 /// Énumère les opérations mathématiques disponibles dans la calculatrice.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter<CalculatorOperation>))]
+[Description("Performs basic arithmetic operations")]
 public enum CalculatorOperation
 {
-    /// <summary>Addition de deux nombres</summary>
+    /// <summary>Addition of two numbers</summary>
+    [Description("Adds two numbers and returns their sum")]
+    [Parameters("A: First number to add", "B: Second number to add")]
     Add,
-    /// <summary>Soustraction de deux nombres</summary>
+    /// <summary>Subtraction of two numbers</summary>
+    [Description("Subtracts the second number from the first and returns the difference")]
+    [Parameters("A: Starting number", "B: Number to subtract")]
     Subtract,
-    /// <summary>Multiplication de deux nombres</summary>
+    /// <summary>Multiplication of two numbers</summary>
+    [Description("Multiplies two numbers and returns their product")]
+    [Parameters("A: First factor", "B: Second factor")]
     Multiply,
-    /// <summary>Division de deux nombres</summary>
+    /// <summary>Division of two numbers</summary>
+    [Description("Divides the first number by the second and returns the quotient")]
+    [Parameters("A: Dividend (number to divide)", "B: Divisor (non-zero)")]
     Divide,
-    /// <summary>Élévation à la puissance</summary>
+    /// <summary>Power operation</summary>
+    [Description("Raises the first number to the power of the second")]
+    [Parameters("A: Base", "B: Exponent")]
     Power,
-    /// <summary>Racine carrée d'un nombre</summary>
+    /// <summary>Square root of a number</summary>
+    [Description("Calculates the square root of the first number")]
+    [Parameters("A: Number (non-negative)", "B: Not used")]
     SquareRoot,
-    /// <summary>Modulo (reste de la division)</summary>
+    /// <summary>Modulo (division remainder)</summary>
+    [Description("Calculates the remainder of dividing the first number by the second")]
+    [Parameters("A: Dividend", "B: Divisor (non-zero)")]
     Modulo,
-    /// <summary>Valeur absolue</summary>
+    /// <summary>Absolute value</summary>
+    [Description("Calculates the absolute value of the first number")]
+    [Parameters("A: Number to transform", "B: Not used")]
     Abs,
-    /// <summary>Logarithme</summary>
+    /// <summary>Logarithm</summary>
+    [Description("Calculates the logarithm of the first number with the second as base")]
+    [Parameters("A: Number (strictly positive)", "B: Logarithm base (strictly positive and not equal to 1)")]
     Log,
-    /// <summary>Sinus</summary>
+    /// <summary>Sine</summary>
+    [Description("Calculates the sine of the first number (in radians)")]
+    [Parameters("A: Angle in radians", "B: Not used")]
     Sin,
-    /// <summary>Cosinus</summary>
+    /// <summary>Cosine</summary>
+    [Description("Calculates the cosine of the first number (in radians)")]
+    [Parameters("A: Angle in radians", "B: Not used")]
     Cos,
-    /// <summary>Tangente</summary>
+    /// <summary>Tangent</summary>
+    [Description("Calculates the tangent of the first number (in radians)")]
+    [Parameters("A: Angle in radians", "B: Not used")]
     Tan,
-    /// <summary>Arrondi</summary>
+    /// <summary>Rounding</summary>
+    [Description("Rounds the first number to the number of decimal places specified by the second")]
+    [Parameters("A: Number to round", "B: Number of decimal places (integer)")]
     Round,
-    /// <summary>Arrondi inférieur</summary>
+    /// <summary>Floor rounding</summary>
+    [Description("Rounds down the first number to the nearest integer")]
+    [Parameters("A: Number to round", "B: Not used")]
     Floor,
-    /// <summary>Arrondi supérieur</summary>
+    /// <summary>Ceiling rounding</summary>
+    [Description("Rounds up the first number to the nearest integer")]
+    [Parameters("A: Number to round", "B: Not used")]
     Ceiling
 }
 
@@ -105,7 +138,7 @@ public class CalculatorToolHandler(
         new()
         {
             Name = "Calculator",
-            Description = "Performs basic arithmetic operations",
+            Description = typeof(CalculatorOperation).GenerateFullDescription(),
             InputSchema =
                 CalculatorParametersJsonContext.Default.CalculatorParameters.GetToolSchema()!
         };

@@ -1,8 +1,23 @@
+.github
+    workflows
 mcp-toolskit
+    Attributes
+        ParametersAttribute.cs
+    Extentions
+        EnumExtensions.cs
     Handlers
-        CalculatorToolHandler.cs
+        Calculator
+            CalculatorToolHandler.cs
+        Filesystem
+            ReadFileToolHandler.cs
+        FilesystemToolHandler.cs
+    Helpers
     Models
         AppConfig.cs
+    Properties
+        PublishProfiles
+            FolderProfile.pubxml
+            FolderProfile.pubxml.user
     config.json
     mcp-toolskit.csproj
     mcp-toolskit.csproj.user
@@ -10,6 +25,7 @@ mcp-toolskit
 mcp-toolskit-tests
     TestHandlers
         TestCalculatorToolHandler.cs
+        TestFilesystemToolHandler.cs
     mcp-toolskit-tests.csproj
 .gitignore
 ExtractSolution.cmd

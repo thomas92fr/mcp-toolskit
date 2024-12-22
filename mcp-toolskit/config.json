@@ -5,12 +5,26 @@
   "_AllowedTools": "Liste des outils autorisés",
   "AllowedTools": [
     "Calculator",
-    "Filesystem"
+    "ListAllowedDirectories",
+    "ReadFile",
+    "ReadMultipleFiles",
+    "WriteFile",
+    "WriteFileAtPosition----",
+    "CreateDirectory",
+    "ListDirectory",
+    "MoveFile",
+    "SearchFiles",
+    "SearchPositionInFileWithRegex",
+    "GetFileInfo",
+    "DeleteAtPosition",
+    "SearchAndReplace",
+    "DeleteFile"
   ],
 
   "_AllowedDirectories": "Liste des répertoires autorisés pour les opérations sur le système de fichiers.",
   "AllowedDirectories": [
-    "C:\\Users\\Public\\Documents"
+    "C:\\Users\\Public\\Documents",
+    "I:\\"
   ]
 
 }

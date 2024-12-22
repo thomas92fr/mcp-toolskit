@@ -126,5 +126,18 @@ namespace mcp_toolskit.Models
                 WriteIndented = true 
             });
         }
+
+        /// <summary>
+        /// Valide qu'un chemin est dans un répertoire autorisé
+        /// </summary>
+        public virtual string ValidatePath(string path)
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (!AllowedDirectories.Any(dir => fullPath.StartsWith(Path.GetFullPath(dir))))
+            {
+                throw new UnauthorizedAccessException($"Access denied - path outside allowed directories: {fullPath}");
+            }
+            return fullPath;
+        }
     }
 }
