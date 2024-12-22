@@ -177,4 +177,12 @@ public class CalculatorToolHandler(
 
         return Task.FromResult(new CallToolResult { Content = new Annotated[] { content } });
     }
+
+    public  Task<CallToolResult> TestHandleAsync(
+        CalculatorParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
 }
