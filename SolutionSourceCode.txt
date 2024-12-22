@@ -1,0 +1,581 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<solution>
+
+<file path="mcp-toolskit\Handlers\CalculatorToolHandler.cs">
+
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+namespace mcp_toolskit.Handlers;
+public class CalculatorParameters
+{
+    public required CalculatorOperation Operation { get; init; }
+    public required double A { get; init; }
+    public required double B { get; init; }
+    public override string ToString()
+    {
+        return $&quot;Operation: {Operation}, A: {A}, B: {B}&quot;;
+    }
+}
+[JsonConverter(typeof(JsonStringEnumConverter&lt;CalculatorOperation&gt;))]
+public enum CalculatorOperation
+{
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Power,
+    SquareRoot,
+    Modulo,
+    Abs,
+    Log,
+    Sin,
+    Cos,
+    Tan,
+    Round,
+    Floor,
+    Ceiling
+}
+[JsonSerializable(typeof(CalculatorParameters))]
+public partial class CalculatorParametersJsonContext : JsonSerializerContext { }
+public class CalculatorToolHandler(
+    IServerContext serverContext,
+    ISessionContext sessionContext,
+    ILogger&lt;CalculatorToolHandler&gt; logger
+) : ToolHandlerBase&lt;CalculatorParameters&gt;(tool, serverContext, sessionContext)
+{
+    private static readonly Tool tool =
+        new()
+        {
+            Name = &quot;Calculator&quot;,
+            Description = &quot;Performs basic arithmetic operations&quot;,
+            InputSchema =
+                CalculatorParametersJsonContext.Default.CalculatorParameters.GetToolSchema()!
+        };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        CalculatorParametersJsonContext.Default.CalculatorParameters;
+    protected override Task&lt;CallToolResult&gt; HandleAsync(
+        CalculatorParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        var result = parameters.Operation switch
+        {
+            CalculatorOperation.Add =&gt; parameters.A + parameters.B,
+            CalculatorOperation.Subtract =&gt; parameters.A - parameters.B,
+            CalculatorOperation.Multiply =&gt; parameters.A * parameters.B,
+            CalculatorOperation.Divide when parameters.B != 0 =&gt; parameters.A / parameters.B,
+            CalculatorOperation.Divide =&gt; throw new DivideByZeroException(&quot;Cannot divide by zero&quot;),
+            CalculatorOperation.Power =&gt; Math.Pow(parameters.A, parameters.B),
+            CalculatorOperation.SquareRoot when parameters.A &gt;= 0 =&gt; Math.Sqrt(parameters.A),
+            CalculatorOperation.SquareRoot =&gt; throw new ArgumentException(&quot;Cannot calculate square root of negative number&quot;),
+            CalculatorOperation.Modulo when parameters.B != 0 =&gt; parameters.A % parameters.B,
+            CalculatorOperation.Modulo =&gt; throw new DivideByZeroException(&quot;Cannot calculate modulo with zero&quot;),
+            CalculatorOperation.Abs =&gt; Math.Abs(parameters.A),
+            CalculatorOperation.Log when parameters.A &gt; 0 =&gt; Math.Log(parameters.A, parameters.B),
+            CalculatorOperation.Log =&gt; throw new ArgumentException(&quot;Invalid logarithm parameters&quot;),
+            CalculatorOperation.Sin =&gt; Math.Sin(parameters.A),
+            CalculatorOperation.Cos =&gt; Math.Cos(parameters.A),
+            CalculatorOperation.Tan =&gt; Math.Tan(parameters.A),
+            CalculatorOperation.Round =&gt; Math.Round(parameters.A, (int)parameters.B),
+            CalculatorOperation.Floor =&gt; Math.Floor(parameters.A),
+            CalculatorOperation.Ceiling =&gt; Math.Ceiling(parameters.A),
+            _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+        };
+        var content = new TextContent { Text = result.ToString() };
+        logger.LogInformation(&quot;Calculated with final content: {content}&quot;, content);
+        return Task.FromResult(new CallToolResult { Content = new Annotated[] { content } });
+    }
+    public  Task&lt;CallToolResult&gt; TestHandleAsync(
+        CalculatorParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Models\AppConfig.cs">
+
+using System;
+using System.Text.Json;
+namespace mcp_toolskit.Models
+{
+    public class AppConfig
+    {
+        public string LogPath { get; set; } = AppContext.BaseDirectory;
+        public AppConfig()
+        {
+            NormalizePathProperties();
+        }
+        private void NormalizePathProperties()
+        {
+            if (!string.IsNullOrWhiteSpace(LogPath))
+            {
+                LogPath = Path.GetFullPath(LogPath, AppContext.BaseDirectory);
+            }
+        }
+        public static AppConfig LoadFromFile(string path)
+        {
+            if (!File.Exists(path))
+                throw new FileNotFoundException(&quot;Le fichier de configuration n&apos;existe pas.&quot;, path);
+            string jsonContent = File.ReadAllText(path);
+            var config = JsonSerializer.Deserialize&lt;AppConfig&gt;(jsonContent) ?? new AppConfig();
+            config.NormalizePathProperties();
+            return config;
+        }
+        public static AppConfig GetConfiguration(string? configPath, out string? errorMessage)
+        {
+            errorMessage = null;
+            if (string.IsNullOrWhiteSpace(configPath))
+            {
+                configPath = Path.Combine(AppContext.BaseDirectory, &quot;config.json&quot;);
+            }
+            try
+            {
+                return LoadFromFile(configPath);
+            }
+            catch (FileNotFoundException)
+            {
+                if (configPath == Path.Combine(AppContext.BaseDirectory, &quot;config.json&quot;))
+                {
+                    return new AppConfig();
+                }
+                errorMessage = $&quot;Le fichier de configuration &apos;{configPath}&apos; n&apos;existe pas. Utilisation de la configuration par défaut.&quot;;
+            }
+            catch (JsonException ex)
+            {
+                errorMessage = $&quot;Erreur de format dans le fichier de configuration &apos;{configPath}&apos;: {ex.Message}. Utilisation de la configuration par défaut.&quot;;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $&quot;Erreur lors du chargement de la configuration &apos;{configPath}&apos;: {ex.Message}. Utilisation de la configuration par défaut.&quot;;
+            }
+            return new AppConfig();
+        }
+        public override string ToString()
+        {
+            return JsonSerializer.Serialize(this, new JsonSerializerOptions 
+            { 
+                WriteIndented = true 
+            });
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Program.cs">
+
+using mcp_toolskit.Handlers;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Server.Builder;
+using Serilog;
+namespace mcp_toolskit
+{
+    internal class Program
+    {
+        public static string GetCurrentLogFileName(string logPath)
+        {
+            string baseFileName = &quot;Logs&quot;;
+            string date = DateTime.Now.ToString(&quot;yyyyMMdd&quot;);
+            return Path.Combine(logPath, $&quot;{baseFileName}{date}.txt&quot;);
+        }
+        static async Task Main(string[] args)
+        {
+            string? errorMessage;
+            var appConfig = AppConfig.GetConfiguration(args.Length &gt; 0 ? args[0] : null, out errorMessage);
+            if (errorMessage != null)
+            {
+                Console.Error.WriteLine(errorMessage);
+            }
+            Console.Error.WriteLine(&quot;Configuration chargée :&quot;);
+            Console.Error.WriteLine(appConfig.ToString());
+            string version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? &quot;Version inconnue&quot;;
+            var serverInfo = new Implementation { Name = &quot;La boîte à outils de Toto&quot;, Version = version };
+            var seriLogger = new LoggerConfiguration()
+                .WriteTo.File(Path.Combine(appConfig.LogPath,&quot;Logs.txt&quot;), 
+                              rollingInterval: RollingInterval.Day, 
+                              retainedFileCountLimit: 7)
+                .MinimumLevel.Debug()
+                .CreateLogger();
+            Log.Logger = seriLogger;
+            var server = new McpServerBuilder(serverInfo)
+                .AddStdioTransport()
+                .ConfigureLogging(logging =&gt; logging.AddSerilog(seriLogger).SetMinimumLevel(LogLevel.Trace))
+                .ConfigureUserServices(services =&gt;
+                {
+                    services.AddLogging(builder =&gt;
+                    {
+                        builder.ClearProviders();
+                        builder.AddSerilog(seriLogger, dispose: true);
+                        builder.SetMinimumLevel(LogLevel.Debug);
+                    });
+                    services.AddSingleton(appConfig);
+                })
+                .ConfigureTools(tools =&gt; tools.AddHandler&lt;CalculatorToolHandler&gt;())
+                .Build();
+            try
+            {
+                server.Start();
+                Console.Error.WriteLine($&quot;Serveur MCP &apos;{serverInfo.Name}&apos; v{serverInfo.Version} s&apos;exécutant sur stdio&quot;);
+                string currentLogFile = GetCurrentLogFileName(appConfig.LogPath);
+                Console.Error.WriteLine($&quot;Fichier de log actuel : {currentLogFile}&quot;);
+                await Task.Delay(-1); 
+            }
+            finally
+            {
+                server.Stop();
+                await server.DisposeAsync();
+                Log.CloseAndFlush(); 
+            }
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit-tests\TestHandlers\TestCalculatorToolHandler.cs">
+
+using mcp_toolskit.Handlers;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using Moq;
+namespace mcp_toolskit_tests.TestHandlers
+{
+    public class TestCalculatorToolHandler
+    {
+        private readonly Mock&lt;IServerContext&gt; _mockServerContext;
+        private readonly Mock&lt;ISessionContext&gt; _mockSessionContext;
+        private readonly Mock&lt;ILogger&lt;CalculatorToolHandler&gt;&gt; _mockLogger;
+        private readonly CalculatorToolHandler _handler;
+        public TestCalculatorToolHandler()
+        {
+            _mockServerContext = new Mock&lt;IServerContext&gt;();
+            _mockSessionContext = new Mock&lt;ISessionContext&gt;();
+            _mockLogger = new Mock&lt;ILogger&lt;CalculatorToolHandler&gt;&gt;();
+            _handler = new CalculatorToolHandler(
+                _mockServerContext.Object,
+                _mockSessionContext.Object,
+                _mockLogger.Object
+            );
+        }
+        [Theory]
+        [InlineData(2, 3, 5)]
+        [InlineData(-1, 1, 0)]
+        [InlineData(0, 0, 0)]
+        public async Task Add_ShouldReturnCorrectSum(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Add,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            Assert.True(result.Content.Length &gt; 0);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(5, 3, 2)]
+        [InlineData(10, -5, 15)]
+        [InlineData(0, 0, 0)]
+        public async Task Subtract_ShouldReturnCorrectDifference(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Subtract,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(4, 2, 8)]
+        [InlineData(-3, -2, 6)]
+        [InlineData(0, 5, 0)]
+        public async Task Multiply_ShouldReturnCorrectProduct(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Multiply,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(10, 2, 5)]
+        [InlineData(-8, 2, -4)]
+        [InlineData(0, 5, 0)]
+        public async Task Divide_ShouldReturnCorrectQuotient(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Divide,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(10, 0)]
+        public async Task Divide_ByZero_ShouldThrowException(double a, double b)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Divide,
+                A = a,
+                B = b
+            };
+            await Assert.ThrowsAsync&lt;DivideByZeroException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Theory]
+        [InlineData(2, 3, 8)]
+        [InlineData(5, 2, 25)]
+        [InlineData(0, 5, 0)]
+        public async Task Power_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Power,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(16, 0, 4)]
+        [InlineData(9, 0, 3)]
+        [InlineData(0, 0, 0)]
+        public async Task SquareRoot_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.SquareRoot,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(-1)]
+        public async Task SquareRoot_NegativeNumber_ShouldThrowException(double a)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.SquareRoot,
+                A = a,
+                B = 0
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Theory]
+        [InlineData(10, 3, 1)]
+        [InlineData(17, 5, 2)]
+        public async Task Modulo_ShouldReturnCorrectRemainder(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Modulo,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(10, 0)]
+        public async Task Modulo_ByZero_ShouldThrowException(double a, double b)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Modulo,
+                A = a,
+                B = b
+            };
+            await Assert.ThrowsAsync&lt;DivideByZeroException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Theory]
+        [InlineData(-5, 0, 5)]
+        [InlineData(3.5, 0, 3.5)]
+        [InlineData(0, 0, 0)]
+        public async Task Abs_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Abs,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(Math.E, Math.E, 1)]
+        [InlineData(8, 2, 3)]
+        public async Task Log_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Log,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(-1, 2)]
+        [InlineData(0, 2)]
+        public async Task Log_InvalidInput_ShouldThrowException(double a, double b)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Log,
+                A = a,
+                B = b
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Theory]
+        [InlineData(0, 0, 0)]
+        [InlineData(Math.PI / 2, 0, 1)]
+        [InlineData(Math.PI, 0, 0)]
+        public async Task Sin_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Sin,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(Math.Round(expected, 10).ToString(), Math.Round(double.Parse(textContent.Text), 10).ToString());
+        }
+        [Theory]
+        [InlineData(0, 0, 1)]
+        [InlineData(Math.PI / 2, 0, 0)]
+        [InlineData(Math.PI, 0, -1)]
+        public async Task Cos_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Cos,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(Math.Round(expected, 10).ToString(), Math.Round(double.Parse(textContent.Text), 10).ToString());
+        }
+        [Theory]
+        [InlineData(0, 0, 0)]
+        [InlineData(Math.PI / 4, 0, 1)]
+        public async Task Tan_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Tan,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(Math.Round(expected, 10).ToString(), Math.Round(double.Parse(textContent.Text), 10).ToString());
+        }
+        [Theory]
+        [InlineData(3.7, 0, 4)]
+        [InlineData(-3.7, 0, -4)]
+        [InlineData(3.2, 0, 3)]
+        public async Task Round_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Round,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+        [Theory]
+        [InlineData(3.7, 0, 3)]
+        [InlineData(-3.7, 0, -4)]
+        [InlineData(3.2, 0, 3)]
+        public async Task Floor_ShouldReturnCorrectResult(double a, double b, double expected)
+        {
+            var parameters = new CalculatorParameters
+            {
+                Operation = CalculatorOperation.Floor,
+                A = a,
+                B = b
+            };
+            var result = await _handler.TestHandleAsync(parameters, default);
+            Assert.NotNull(result);
+            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+            Assert.Equal(expected.ToString(), textContent.Text);
+        }
+    }
+}
+
+</file>
+
+
+</solution>

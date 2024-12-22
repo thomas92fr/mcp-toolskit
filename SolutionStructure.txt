@@ -1,0 +1,21 @@
+mcp-toolskit
+    Handlers
+        CalculatorToolHandler.cs
+    Models
+        AppConfig.cs
+    config.json
+    mcp-toolskit.csproj
+    mcp-toolskit.csproj.user
+    Program.cs
+mcp-toolskit-tests
+    TestHandlers
+        TestCalculatorToolHandler.cs
+    mcp-toolskit-tests.csproj
+.gitignore
+ExtractSolution.cmd
+ExtractSolutionCode.ps1
+LICENSE
+mcp-toolskit.sln
+README.md
+SolutionSourceCode.txt
+SolutionStructure.ps1
