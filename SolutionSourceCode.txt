@@ -207,6 +207,900 @@ public class CalculatorToolHandler(
 </file>
 
 
+<file path="mcp-toolskit\Handlers\DotNet\DotNetToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.Collections;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.DotNet;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;DotNetOperation&gt;))]
+public enum DotNetOperation
+{
+    [Description(&quot;Executes unit tests for a .NET solution&quot;)]
+    [Parameters(&quot;SolutionFile: Full path of the solution file&quot;)]
+    RunTests
+}
+public class DotNetParameters
+{
+    public required DotNetOperation Operation { get; init; }
+    public required string SolutionFile { get; init; }
+    public override string ToString()
+    {
+        return $&quot;Operation: {Operation}, SolutionFile: {SolutionFile}&quot;;
+    }
+}
+[JsonSerializable(typeof(DotNetParameters))]
+public partial class DotNetParametersJsonContext : JsonSerializerContext { }
+public class DotNetToolHandler : ToolHandlerBase&lt;DotNetParameters&gt;
+{
+    private readonly ILogger&lt;DotNetToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public DotNetToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;DotNetToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;DotNet&quot;,
+        Description = typeof(DotNetOperation).GenerateFullDescription(),
+        InputSchema = DotNetParametersJsonContext.Default.DotNetParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        DotNetParametersJsonContext.Default.DotNetParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        DotNetParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Running dotnet command: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                DotNetOperation.RunTests =&gt; await RunTestsAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error running dotnet command&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; RunTestsAsync(DotNetParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.SolutionFile))
+            throw new ArgumentException(&quot;SolutionFile is required for RunTests operation&quot;);
+        foreach(var env in Environment.GetEnvironmentVariables().Cast&lt;DictionaryEntry&gt;())
+        {
+            _logger.LogDebug(&quot;Environment variable: {Key} = {Value}&quot;, env.Key, env.Value);
+        }
+        _logger.LogInformation(&quot;AllowedDirectories: {Directories}&quot;, string.Join(&quot;, &quot;, _appConfig.AllowedDirectories));
+        _logger.LogInformation(&quot;Checking path: {Path}&quot;, Path.GetDirectoryName(parameters.SolutionFile));
+        var solutionDir = _appConfig.ValidatePath(Path.GetDirectoryName(parameters.SolutionFile)!);
+        if (!Directory.Exists(solutionDir))
+            throw new DirectoryNotFoundException($&quot;Solution directory not found: {solutionDir}&quot;);
+        var solutionPath = parameters.SolutionFile;
+        if (!File.Exists(solutionPath))
+            throw new FileNotFoundException($&quot;Solution file not found: {solutionPath}&quot;);
+        _logger.LogInformation(&quot;Running tests for solution: {SolutionPath}&quot;, solutionPath);
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = &quot;dotnet&quot;,
+            Arguments = $&quot;test \&quot;{solutionPath}\&quot; --no-restore --logger \&quot;trx;LogFileName=TestResults.trx\&quot;&quot;,
+            WorkingDirectory = solutionDir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        _logger.LogInformation(&quot;Starting process with: FileName = {FileName}, Arguments = {Arguments}, WorkingDirectory = {WorkingDirectory}&quot;,
+            processStartInfo.FileName,
+            processStartInfo.Arguments,
+            processStartInfo.WorkingDirectory);
+        using var process = new Process { StartInfo = processStartInfo };
+        var output = new StringBuilder();
+        process.OutputDataReceived += (sender, e) =&gt;
+        {
+            if (e.Data != null)
+            {
+                output.AppendLine(e.Data);
+                _logger.LogInformation(&quot;Process output: {Output}&quot;, e.Data);
+            }
+        };
+        process.ErrorDataReceived += (sender, e) =&gt;
+        {
+            if (e.Data != null)
+            {
+                var errorMessage = $&quot;ERROR: {e.Data}&quot;;
+                output.AppendLine(errorMessage);
+                _logger.LogError(&quot;Process error: {Error}&quot;, e.Data);
+            }
+        };
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        await process.WaitForExitAsync();
+        var exitCode = process.ExitCode;
+        _logger.LogInformation(&quot;Process completed with exit code: {ExitCode}&quot;, exitCode);
+        return output.ToString();
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\CreateDirectoryToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;CreateDirectoryOperation&gt;))]
+public enum CreateDirectoryOperation
+{
+    [Description(&quot;Creates a new directory at a specified path&quot;)]
+    [Parameters(&quot;Path: Full path of the directory to create&quot;)]
+    CreateDirectory
+}
+public class CreateDirectoryParameters
+{
+    public required CreateDirectoryOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);      
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(CreateDirectoryParameters))]
+public partial class CreateDirectoryParametersJsonContext : JsonSerializerContext { }
+public class CreateDirectoryToolHandler : ToolHandlerBase&lt;CreateDirectoryParameters&gt;
+{
+    private readonly ILogger&lt;CreateDirectoryToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public CreateDirectoryToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;CreateDirectoryToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;CreateDirectory&quot;,
+        Description = typeof(CreateDirectoryOperation).GenerateFullDescription(),
+        InputSchema = CreateDirectoryParametersJsonContext.Default.CreateDirectoryParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        CreateDirectoryParametersJsonContext.Default.CreateDirectoryParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        CreateDirectoryParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                CreateDirectoryOperation.CreateDirectory =&gt; await CreateDirectoryAsync(parameters),             
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in filesystem operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; CreateDirectoryAsync(CreateDirectoryParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for CreateDirectory operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var parentDirectory = Path.GetDirectoryName(validPath);
+        if (!string.IsNullOrEmpty(parentDirectory))
+        {
+            _appConfig.ValidatePath(parentDirectory);
+            Directory.CreateDirectory(parentDirectory);
+        }
+        Directory.CreateDirectory(validPath);
+        return await Task.FromResult($&quot;Successfully created directory {parameters.Path}&quot;);
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        CreateDirectoryParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\DeleteAtPositionToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;DeleteAtPositionOperation&gt;))]
+public enum DeleteAtPositionOperation
+{
+    [Description(&quot;Deletes a specific number of characters at the given position&quot;)]
+    [Parameters(
+        &quot;Path: Full path of the file to modify&quot;,
+        &quot;Position: Starting position for deletion&quot;,
+        &quot;Length: Number of characters to delete&quot;,
+        &quot;PreserveLength: Option to replace with spaces&quot;)]
+    DeleteAtPosition
+}
+public class DeleteAtPositionParameters
+{
+    public required DeleteAtPositionOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public required int Position { get; init; }
+    public required int Length { get; init; }
+    public bool PreserveLength { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
+        sb.Append($&quot;, Position: {Position}&quot;);
+        sb.Append($&quot;, Length: {Length}&quot;);
+        sb.Append($&quot;, PreserveLength: {PreserveLength}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(DeleteAtPositionParameters))]
+public partial class DeleteAtPositionParametersJsonContext : JsonSerializerContext { }
+public class DeleteAtPositionToolHandler : ToolHandlerBase&lt;DeleteAtPositionParameters&gt;
+{
+    private readonly ILogger&lt;DeleteAtPositionToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public DeleteAtPositionToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;DeleteAtPositionToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;DeleteAtPosition&quot;,
+        Description = typeof(DeleteAtPositionOperation).GenerateFullDescription(),
+        InputSchema = DeleteAtPositionParametersJsonContext.Default.DeleteAtPositionParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        DeleteAtPositionParametersJsonContext.Default.DeleteAtPositionParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        DeleteAtPositionParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                DeleteAtPositionOperation.DeleteAtPosition =&gt; await DeleteAtPositionAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in delete at position operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; DeleteAtPositionAsync(DeleteAtPositionParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for DeleteAtPosition operation&quot;);
+        if (parameters.Length &lt;= 0)
+            throw new ArgumentException(&quot;Length must be positive for DeleteAtPosition operation&quot;);
+        if (parameters.Position &lt; 0)
+            throw new ArgumentException(&quot;Position cannot be negative&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var content = await File.ReadAllTextAsync(validPath);
+        if (parameters.Position &gt;= content.Length)
+            throw new ArgumentException(&quot;Position is beyond end of file&quot;);
+        var effectiveLength = Math.Min(parameters.Length, content.Length - parameters.Position);
+        string newContent;
+        if (parameters.PreserveLength)
+        {
+            var spaces = new string(&apos; &apos;, effectiveLength);
+            newContent = content.Remove(parameters.Position, effectiveLength)
+                              .Insert(parameters.Position, spaces);
+        }
+        else
+        {
+            newContent = content.Remove(parameters.Position, effectiveLength);
+        }
+        await File.WriteAllTextAsync(validPath, newContent);
+        return $&quot;Successfully deleted {effectiveLength} characters at position {parameters.Position} in {parameters.Path}&quot;;
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        DeleteAtPositionParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\DeleteFileToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;DeleteFileOperation&gt;))]
+public enum DeleteFileOperation
+{
+    [Description(&quot;Deletes a file at the specified path&quot;)]
+    [Parameters(&quot;Path: Full path of the file to delete&quot;)]
+    DeleteFile
+}
+public class DeleteFileParameters
+{
+    public required DeleteFileOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);      
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(DeleteFileParameters))]
+public partial class DeleteFileParametersJsonContext : JsonSerializerContext { }
+public class DeleteFileToolHandler : ToolHandlerBase&lt;DeleteFileParameters&gt;
+{
+    private readonly ILogger&lt;DeleteFileToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public DeleteFileToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;DeleteFileToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;DeleteFile&quot;,
+        Description = typeof(DeleteFileOperation).GenerateFullDescription(),
+        InputSchema = DeleteFileParametersJsonContext.Default.DeleteFileParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        DeleteFileParametersJsonContext.Default.DeleteFileParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        DeleteFileParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                DeleteFileOperation.DeleteFile =&gt; await DeleteFileAsync(parameters),             
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in filesystem operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; DeleteFileAsync(DeleteFileParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for DeleteFile operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        if (!File.Exists(validPath))
+            throw new FileNotFoundException($&quot;The file {validPath} does not exist.&quot;);
+        await Task.Run(() =&gt; File.Delete(validPath));
+        return $&quot;File {validPath} has been successfully deleted.&quot;;
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        DeleteFileParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\GetFileInfoToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GetFileInfoOperation&gt;))]
+public enum GetFileInfoOperation
+{
+    [Description(&quot;Retrieve detailed metadata about a file or directory&quot;)]
+    [Parameters(&quot;Path: Full path of the file or directory&quot;)]
+    GetFileInfo
+}
+public class GetFileInfoParameters
+{
+    public required GetFileInfoOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GetFileInfoParameters))]
+public partial class GetFileInfoParametersJsonContext : JsonSerializerContext { }
+public class GetFileInfoToolHandler : ToolHandlerBase&lt;GetFileInfoParameters&gt;
+{
+    private readonly ILogger&lt;GetFileInfoToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GetFileInfoToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GetFileInfoToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GetFileInfo&quot;,
+        Description = typeof(GetFileInfoOperation).GenerateFullDescription(),
+        InputSchema = GetFileInfoParametersJsonContext.Default.GetFileInfoParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GetFileInfoParametersJsonContext.Default.GetFileInfoParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GetFileInfoParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GetFileInfoOperation.GetFileInfo =&gt; await GetFileInfoAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in filesystem operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; GetFileInfoAsync(GetFileInfoParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for GetFileInfo operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var info = new FileInfo(validPath);
+        var fileInfo = new Dictionary&lt;string, string&gt;
+        {
+            { &quot;size&quot;, info.Length.ToString() },
+            { &quot;created&quot;, info.CreationTime.ToString() },
+            { &quot;modified&quot;, info.LastWriteTime.ToString() },
+            { &quot;accessed&quot;, info.LastAccessTime.ToString() },
+            { &quot;isDirectory&quot;, info.Attributes.HasFlag(FileAttributes.Directory).ToString() },
+            { &quot;isFile&quot;, (!info.Attributes.HasFlag(FileAttributes.Directory)).ToString() },
+            { &quot;permissions&quot;, Convert.ToString((int)(info.Attributes &amp; FileAttributes.Archive), 8) }
+        };
+        return Task.FromResult(string.Join(&quot;\n&quot;, fileInfo.Select(kvp =&gt; $&quot;{kvp.Key}: {kvp.Value}&quot;)));
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GetFileInfoParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\ListAllowedDirectoriesToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;ListAllowedDirectoriesOperation&gt;))]
+public enum ListAllowedDirectoriesOperation
+{
+    [Description(&quot;List all directories authorized for file operations&quot;)]
+    ListAllowedDirectories
+}
+public class ListAllowedDirectoriesParameters
+{
+    public required ListAllowedDirectoriesOperation Operation { get; init; }
+    public override string ToString()
+    {
+        return $&quot;Operation: {Operation}&quot;;
+    }
+}
+[JsonSerializable(typeof(ListAllowedDirectoriesParameters))]
+public partial class ListAllowedDirectoriesParametersJsonContext : JsonSerializerContext { }
+public class ListAllowedDirectoriesToolHandler : ToolHandlerBase&lt;ListAllowedDirectoriesParameters&gt;
+{
+    private readonly ILogger&lt;ListAllowedDirectoriesToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public ListAllowedDirectoriesToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;ListAllowedDirectoriesToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;ListAllowedDirectories&quot;,
+        Description = typeof(ListAllowedDirectoriesOperation).GenerateFullDescription(),
+        InputSchema = ListAllowedDirectoriesParametersJsonContext.Default.ListAllowedDirectoriesParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        ListAllowedDirectoriesParametersJsonContext.Default.ListAllowedDirectoriesParameters;
+    protected override Task&lt;CallToolResult&gt; HandleAsync(
+        ListAllowedDirectoriesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                ListAllowedDirectoriesOperation.ListAllowedDirectories =&gt; ListAllowedDirectories(),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return Task.FromResult(new CallToolResult { Content = new Annotated[] { content } });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in list allowed directories operation&quot;);
+            throw;
+        }
+    }
+    private string ListAllowedDirectories()
+    {
+        return $&quot;Allowed directories:\n{string.Join(&quot;\n&quot;, _appConfig.AllowedDirectories)}&quot;;
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        ListAllowedDirectoriesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\ListDirectoryToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;ListDirectoryOperation&gt;))]
+public enum ListDirectoryOperation
+{
+    [Description(&quot;Lists all files and subdirectories in a specified directory&quot;)]
+    [Parameters(&quot;Path: Full path of the directory to list&quot;)]
+    ListDirectory
+}
+public class ListDirectoryParameters
+{
+    public required ListDirectoryOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);      
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(ListDirectoryParameters))]
+public partial class ListDirectoryParametersJsonContext : JsonSerializerContext { }
+public class ListDirectoryToolHandler : ToolHandlerBase&lt;ListDirectoryParameters&gt;
+{
+    private readonly ILogger&lt;ListDirectoryToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public ListDirectoryToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;ListDirectoryToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;ListDirectory&quot;,
+        Description = typeof(ListDirectoryOperation).GenerateFullDescription(),
+        InputSchema = ListDirectoryParametersJsonContext.Default.ListDirectoryParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        ListDirectoryParametersJsonContext.Default.ListDirectoryParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        ListDirectoryParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                ListDirectoryOperation.ListDirectory =&gt; await ListDirectoryAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in filesystem operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; ListDirectoryAsync(ListDirectoryParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for ListDirectory operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var entries = Directory.GetFileSystemEntries(validPath)
+            .Select(entry =&gt;
+            {
+                var isDirectory = Directory.Exists(entry);
+                var name = Path.GetFileName(entry);
+                return $&quot;{(isDirectory ? &quot;[DIR]&quot; : &quot;[FILE]&quot;)} {name}&quot;;
+            });
+        return Task.FromResult(string.Join(&quot;\n&quot;, entries));
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        ListDirectoryParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\MoveFileToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;MoveFileOperation&gt;))]
+public enum MoveFileOperation
+{
+    [Description(&quot;Move or rename a file from one location to another&quot;)]
+    [Parameters(
+        &quot;Source: Source path of the file&quot;,
+        &quot;Destination: Destination path for the file&quot;)]
+    MoveFile
+}
+public class MoveFileParameters
+{
+    public required MoveFileOperation Operation { get; init; }
+    public required string Source { get; init; }
+    public required string Destination { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Source != null) sb.Append($&quot;, Source: {Source}&quot;);
+        if (Destination != null) sb.Append($&quot;, Destination: {Destination}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(MoveFileParameters))]
+public partial class MoveFileParametersJsonContext : JsonSerializerContext { }
+public class MoveFileToolHandler : ToolHandlerBase&lt;MoveFileParameters&gt;
+{
+    private readonly ILogger&lt;MoveFileToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public MoveFileToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;MoveFileToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;MoveFile&quot;,
+        Description = typeof(MoveFileOperation).GenerateFullDescription(),
+        InputSchema = MoveFileParametersJsonContext.Default.MoveFileParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        MoveFileParametersJsonContext.Default.MoveFileParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        MoveFileParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                MoveFileOperation.MoveFile =&gt; await MoveFileAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in filesystem operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; MoveFileAsync(MoveFileParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Source))
+            throw new ArgumentException(&quot;Source path is required for MoveFile operation&quot;);
+        if (string.IsNullOrEmpty(parameters.Destination))
+            throw new ArgumentException(&quot;Destination path is required for MoveFile operation&quot;);
+        var validSourcePath = _appConfig.ValidatePath(parameters.Source);
+        var validDestPath = _appConfig.ValidatePath(parameters.Destination);
+        File.Move(validSourcePath, validDestPath);
+        return Task.FromResult($&quot;Successfully moved {parameters.Source} to {parameters.Destination}&quot;);
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        MoveFileParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
 <file path="mcp-toolskit\Handlers\Filesystem\ReadFileToolHandler.cs">
 
 using mcp_toolskit.Attributes;
@@ -306,148 +1200,66 @@ public class ReadFileToolHandler : ToolHandlerBase&lt;ReadFileParameters&gt;
 </file>
 
 
-<file path="mcp-toolskit\Handlers\FilesystemToolHandler.cs">
+<file path="mcp-toolskit\Handlers\Filesystem\ReadMultipleFilesToolHandler.cs">
 
-using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
 using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
-using System.Text;
-using mcp_toolskit.Models;
-using mcp_toolskit.Attributes;
 using System.ComponentModel;
-using mcp_toolskit.Extentions;
-namespace mcp_toolskit.Handlers;
-[JsonConverter(typeof(JsonStringEnumConverter&lt;FilesystemOperation&gt;))]
-public enum FilesystemOperation
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;ReadMultipleFilesOperation&gt;))]
+public enum ReadMultipleFilesOperation
 {
-    [Description(&quot;Lit le contenu d&apos;un fichier à partir d&apos;un chemin spécifié&quot;)]
-    [Parameters(&quot;Path: Chemin complet du fichier à lire&quot;)]
-    ReadFile,
-    [Description(&quot;Lit le contenu de plusieurs fichiers à partir d&apos;une liste de chemins&quot;)]
-    [Parameters(&quot;Paths: Liste des chemins complets des fichiers à lire&quot;)]
-    ReadMultipleFiles,
-    [Description(&quot;Écrit du contenu dans un fichier, en écrasant le contenu existant&quot;)]
-    [Parameters(
-        &quot;Path: Chemin complet du fichier à écrire&quot;,
-        &quot;Content: Contenu à écrire dans le fichier&quot;)]
-    WriteFile,
-    [Description(&quot;Insère du contenu dans un fichier à une position spécifique&quot;)]
-    [Parameters(
-        &quot;Path: Chemin complet du fichier à modifier&quot;,
-        &quot;Content: Contenu à insérer&quot;,
-        &quot;Position: Position d&apos;insertion dans le fichier&quot;)]
-    WriteFileAtPosition,
-    [Description(&quot;Crée un nouveau répertoire à un chemin spécifié&quot;)]
-    [Parameters(&quot;Path: Chemin complet du répertoire à créer&quot;)]
-    CreateDirectory,
-    [Description(&quot;Liste tous les fichiers et sous-répertoires d&apos;un répertoire&quot;)]
-    [Parameters(&quot;Path: Chemin complet du répertoire à lister&quot;)]
-    ListDirectory,
-    [Description(&quot;Déplace ou renomme un fichier d&apos;un emplacement à un autre&quot;)]
-    [Parameters(
-        &quot;Source: Chemin source du fichier&quot;,
-        &quot;Destination: Chemin de destination du fichier&quot;)]
-    MoveFile,
-    [Description(&quot;Recherche des fichiers correspondant à un motif dans un répertoire&quot;)]
-    [Parameters(
-        &quot;Path: Répertoire de recherche&quot;,
-        &quot;Pattern: Motif de recherche des fichiers&quot;)]
-    SearchFiles,
-    [Description(&quot;Recherche les positions des occurrences d&apos;une expression régulière dans un fichier&quot;)]
-    [Parameters(
-        &quot;Path: Chemin du fichier à examiner&quot;,
-        &quot;Regex: Expression régulière à rechercher&quot;)]
-    SearchPositionInFileWithRegex,
-    [Description(&quot;Récupère les métadonnées détaillées d&apos;un fichier ou répertoire&quot;)]
-    [Parameters(&quot;Path: Chemin du fichier ou répertoire&quot;)]
-    GetFileInfo,
-    [Description(&quot;Supprime un nombre spécifique de caractères à une position donnée&quot;)]
-    [Parameters(
-        &quot;Path: Chemin du fichier à modifier&quot;,
-        &quot;Position: Position de début de suppression&quot;,
-        &quot;Length: Nombre de caractères à supprimer&quot;,
-        &quot;PreserveLength: Option pour remplacer par des espaces&quot;)]
-    DeleteAtPosition,
-    [Description(&quot;Remplace les occurrences d&apos;une expression régulière par un contenu de remplacement&quot;)]
-    [Parameters(
-        &quot;Path: Chemin du fichier à modifier&quot;,
-        &quot;Regex: Expression régulière à rechercher&quot;,
-        &quot;Replacement: Contenu de remplacement&quot;,
-        &quot;PreserveLength: Option pour conserver la longueur&quot;)]
-    SearchAndReplace,
-    [Description(&quot;Liste tous les répertoires autorisés pour les opérations de fichiers&quot;)]
-    ListAllowedDirectories
+    [Description(&quot;Reads the contents of multiple files from specified paths&quot;)]
+    [Parameters(&quot;Paths: List of full paths of files to read&quot;)]
+    ReadMultipleFiles
 }
-public class FilesystemParameters
+public class ReadMultipleFilesParameters
 {
-    public required FilesystemOperation Operation { get; init; }
-    public string? Path { get; init; }
-    public List&lt;string&gt;? Paths { get; init; }
-    public string? Content { get; init; }
-    public string? Source { get; init; }
-    public string? Destination { get; init; }
-    public string? Pattern { get; init; }
-    public int? Position { get; init; }
-    public string? Regex { get; init; }
-    public int? Length { get; init; }
-    public string? Replacement { get; init; }
-    public bool PreserveLength { get; init; }
+    public required ReadMultipleFilesOperation Operation { get; init; }
+    public required List&lt;string&gt; Paths { get; init; }
     public override string ToString()
     {
         var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
-        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
         if (Paths != null) sb.Append($&quot;, Paths: [{string.Join(&quot;, &quot;, Paths)}]&quot;);
-        if (Source != null) sb.Append($&quot;, Source: {Source}&quot;);
-        if (Destination != null) sb.Append($&quot;, Destination: {Destination}&quot;);
-        if (Pattern != null) sb.Append($&quot;, Pattern: {Pattern}&quot;);
-        if (Position.HasValue) sb.Append($&quot;, Position: {Position}&quot;);
-        if (Regex != null) sb.Append($&quot;, Regex: {Regex}&quot;);
-        if (Length != null) sb.Append($&quot;, Length: {Length}&quot;);
-        if (Replacement != null) sb.Append($&quot;, Replacement: {Replacement}&quot;);
-        if (PreserveLength != null) sb.Append($&quot;, PreserveLength: {PreserveLength}&quot;);
-        return sb.ToString();        
+        return sb.ToString();
     }
 }
-[JsonSerializable(typeof(FilesystemParameters))]
-public partial class FilesystemParametersJsonContext : JsonSerializerContext { }
-public class FilesystemToolHandler : ToolHandlerBase&lt;FilesystemParameters&gt;
+[JsonSerializable(typeof(ReadMultipleFilesParameters))]
+public partial class ReadMultipleFilesParametersJsonContext : JsonSerializerContext { }
+public class ReadMultipleFilesToolHandler : ToolHandlerBase&lt;ReadMultipleFilesParameters&gt;
 {
-    private readonly ILogger&lt;FilesystemToolHandler&gt; _logger;
-    private readonly string[] _allowedDirectories;
-    public FilesystemToolHandler(
+    private readonly ILogger&lt;ReadMultipleFilesToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public ReadMultipleFilesToolHandler(
     IServerContext serverContext,
     ISessionContext sessionContext,
-    ILogger&lt;FilesystemToolHandler&gt; logger,
+    ILogger&lt;ReadMultipleFilesToolHandler&gt; logger,
     AppConfig appConfig
 ) : base(tool, serverContext, sessionContext)
     {
         _logger = logger;
-        _allowedDirectories = appConfig.AllowedDirectories;
+        _appConfig = appConfig;
     }
     private static readonly Tool tool = new()
     {
-        Name = &quot;Filesystem&quot;,
-        Description = typeof(FilesystemOperation).GenerateFullDescription(),
-        InputSchema = FilesystemParametersJsonContext.Default.FilesystemParameters.GetToolSchema()!
+        Name = &quot;ReadMultipleFiles&quot;,
+        Description = typeof(ReadMultipleFilesOperation).GenerateFullDescription(),
+        InputSchema = ReadMultipleFilesParametersJsonContext.Default.ReadMultipleFilesParameters.GetToolSchema()!
     };
     public override JsonTypeInfo JsonTypeInfo =&gt;
-        FilesystemParametersJsonContext.Default.FilesystemParameters;
-    private string ValidatePath(string path)
-    {
-        var fullPath = Path.GetFullPath(path);
-        if (!_allowedDirectories.Any(dir =&gt; fullPath.StartsWith(Path.GetFullPath(dir))))
-        {
-            throw new UnauthorizedAccessException($&quot;Access denied - path outside allowed directories: {fullPath}&quot;);
-        }
-        return fullPath;
-    }
+       ReadMultipleFilesParametersJsonContext.Default.ReadMultipleFilesParameters;
     protected override async Task&lt;CallToolResult&gt; HandleAsync(
-        FilesystemParameters parameters,
+        ReadMultipleFilesParameters parameters,
         CancellationToken cancellationToken = default
     )
     {
@@ -456,19 +1268,7 @@ public class FilesystemToolHandler : ToolHandlerBase&lt;FilesystemParameters&gt;
         {
             string result = parameters.Operation switch
             {
-                FilesystemOperation.ReadFile =&gt; await ReadFileAsync(parameters),
-                FilesystemOperation.ReadMultipleFiles =&gt; await ReadMultipleFilesAsync(parameters),
-                FilesystemOperation.WriteFile =&gt; await WriteFileAsync(parameters),
-                FilesystemOperation.CreateDirectory =&gt; await CreateDirectoryAsync(parameters),
-                FilesystemOperation.ListDirectory =&gt; await ListDirectoryAsync(parameters),
-                FilesystemOperation.MoveFile =&gt; await MoveFileAsync(parameters),
-                FilesystemOperation.SearchFiles =&gt; await SearchFilesAsync(parameters),
-                FilesystemOperation.GetFileInfo =&gt; await GetFileInfoAsync(parameters),
-                FilesystemOperation.ListAllowedDirectories =&gt; ListAllowedDirectories(),
-                FilesystemOperation.WriteFileAtPosition =&gt; await WriteFileAtPositionAsync(parameters),
-                FilesystemOperation.SearchPositionInFileWithRegex =&gt; await SearchPositionInFileWithRegexAsync(parameters),
-                FilesystemOperation.DeleteAtPosition =&gt; await DeleteAtPositionAsync(parameters),
-                FilesystemOperation.SearchAndReplace =&gt; await SearchAndReplaceAsync(parameters),
+                ReadMultipleFilesOperation.ReadMultipleFiles =&gt; await ReadMultipleFilesAsync(parameters),             
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
@@ -480,14 +1280,7 @@ public class FilesystemToolHandler : ToolHandlerBase&lt;FilesystemParameters&gt;
             throw;
         }
     }
-    private async Task&lt;string&gt; ReadFileAsync(FilesystemParameters parameters)
-    {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for ReadFile operation&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        return await File.ReadAllTextAsync(validPath);
-    }
-    private async Task&lt;string&gt; ReadMultipleFilesAsync(FilesystemParameters parameters)
+    private async Task&lt;string&gt; ReadMultipleFilesAsync(ReadMultipleFilesParameters parameters)
     {
         if (parameters.Paths == null || !parameters.Paths.Any())
             throw new ArgumentException(&quot;Paths are required for ReadMultipleFiles operation&quot;);
@@ -496,7 +1289,7 @@ public class FilesystemToolHandler : ToolHandlerBase&lt;FilesystemParameters&gt;
         {
             try
             {
-                var validPath = ValidatePath(path);
+                var validPath = _appConfig.ValidatePath(path);
                 var content = await File.ReadAllTextAsync(validPath);
                 results.Add($&quot;{path}:\n{content}&quot;);
             }
@@ -507,174 +1300,109 @@ public class FilesystemToolHandler : ToolHandlerBase&lt;FilesystemParameters&gt;
         }
         return string.Join(&quot;\n---\n&quot;, results);
     }
-    private async Task&lt;string&gt; WriteFileAsync(FilesystemParameters parameters)
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        ReadMultipleFilesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
     {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for WriteFile operation&quot;);
-        if (string.IsNullOrEmpty(parameters.Content))
-            throw new ArgumentException(&quot;Content is required for WriteFile operation&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        await File.WriteAllTextAsync(validPath, parameters.Content);
-        return $&quot;Successfully wrote to {parameters.Path}&quot;;
+        return HandleAsync(parameters, cancellationToken);
     }
-    private Task&lt;string&gt; CreateDirectoryAsync(FilesystemParameters parameters)
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\SearchAndReplaceToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;SearchAndReplaceOperation&gt;))]
+public enum SearchAndReplaceOperation
+{
+    [Description(&quot;Replaces occurrences of a regular expression with replacement content&quot;)]
+    [Parameters(
+        &quot;Path: Full path of the file to modify&quot;,
+        &quot;Regex: Regular expression pattern to search for&quot;,
+        &quot;Replacement: Replacement content&quot;,
+        &quot;PreserveLength: Option to preserve file length&quot;)]
+    SearchAndReplace
+}
+public class SearchAndReplaceParameters
+{
+    public required SearchAndReplaceOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public required string Regex { get; init; }
+    public required string Replacement { get; init; }
+    public bool PreserveLength { get; init; }
+    public override string ToString()
     {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for CreateDirectory operation&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        Directory.CreateDirectory(validPath);
-        return Task.FromResult($&quot;Successfully created directory {parameters.Path}&quot;);
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
+        if (Regex != null) sb.Append($&quot;, Regex: {Regex}&quot;);
+        if (Replacement != null) sb.Append($&quot;, Replacement: {Replacement}&quot;);
+        sb.Append($&quot;, PreserveLength: {PreserveLength}&quot;);
+        return sb.ToString();
     }
-    private  Task&lt;string&gt; ListDirectoryAsync(FilesystemParameters parameters)
+}
+[JsonSerializable(typeof(SearchAndReplaceParameters))]
+public partial class SearchAndReplaceParametersJsonContext : JsonSerializerContext { }
+public class SearchAndReplaceToolHandler : ToolHandlerBase&lt;SearchAndReplaceParameters&gt;
+{
+    private readonly ILogger&lt;SearchAndReplaceToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public SearchAndReplaceToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;SearchAndReplaceToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
     {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for ListDirectory operation&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        var entries = Directory.GetFileSystemEntries(validPath)
-            .Select(entry =&gt;
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;SearchAndReplace&quot;,
+        Description = typeof(SearchAndReplaceOperation).GenerateFullDescription(),
+        InputSchema = SearchAndReplaceParametersJsonContext.Default.SearchAndReplaceParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        SearchAndReplaceParametersJsonContext.Default.SearchAndReplaceParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        SearchAndReplaceParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
             {
-                var isDirectory = Directory.Exists(entry);
-                var name = Path.GetFileName(entry);
-                return $&quot;{(isDirectory ? &quot;[DIR]&quot; : &quot;[FILE]&quot;)} {name}&quot;;
-            });
-        return Task.FromResult(string.Join(&quot;\n&quot;, entries));
-    }
-    private  Task&lt;string&gt; MoveFileAsync(FilesystemParameters parameters)
-    {
-        if (string.IsNullOrEmpty(parameters.Source))
-            throw new ArgumentException(&quot;Source path is required for MoveFile operation&quot;);
-        if (string.IsNullOrEmpty(parameters.Destination))
-            throw new ArgumentException(&quot;Destination path is required for MoveFile operation&quot;);
-        var validSourcePath = ValidatePath(parameters.Source);
-        var validDestPath = ValidatePath(parameters.Destination);
-        File.Move(validSourcePath, validDestPath);
-        return Task.FromResult($&quot;Successfully moved {parameters.Source} to {parameters.Destination}&quot;);
-    }
-    private  Task&lt;string&gt; SearchFilesAsync(FilesystemParameters parameters)
-    {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for SearchFiles operation&quot;);
-        if (string.IsNullOrEmpty(parameters.Pattern))
-            throw new ArgumentException(&quot;Pattern is required for SearchFiles operation&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        var results = Directory.GetFiles(validPath, $&quot;*{parameters.Pattern}*&quot;, SearchOption.AllDirectories)
-            .Where(file =&gt;
-            {
-                try
-                {
-                    ValidatePath(file);
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            });
-        var fileList = results.ToList();
-        return Task.FromResult(fileList.Any()
-                ? string.Join(&quot;\n&quot;, fileList)
-                : &quot;No matches found&quot;);
-    }
-    private Task&lt;string&gt; GetFileInfoAsync(FilesystemParameters parameters)
-    {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for GetFileInfo operation&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        var info = new FileInfo(validPath);
-        var fileInfo = new Dictionary&lt;string, string&gt;
-        {
-            { &quot;size&quot;, info.Length.ToString() },
-            { &quot;created&quot;, info.CreationTime.ToString() },
-            { &quot;modified&quot;, info.LastWriteTime.ToString() },
-            { &quot;accessed&quot;, info.LastAccessTime.ToString() },
-            { &quot;isDirectory&quot;, info.Attributes.HasFlag(FileAttributes.Directory).ToString() },
-            { &quot;isFile&quot;, (!info.Attributes.HasFlag(FileAttributes.Directory)).ToString() },
-            { &quot;permissions&quot;, Convert.ToString((int)(info.Attributes &amp; FileAttributes.Archive), 8) }
-        };
-        return Task.FromResult(string.Join(&quot;\n&quot;, fileInfo.Select(kvp =&gt; $&quot;{kvp.Key}: {kvp.Value}&quot;)));
-    }
-    private string ListAllowedDirectories()
-    {
-        return $&quot;Allowed directories:\n{string.Join(&quot;\n&quot;, _allowedDirectories)}&quot;;
-    }
-    private async Task&lt;string&gt; WriteFileAtPositionAsync(FilesystemParameters parameters)
-    {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for WriteFileAtPosition operation&quot;);
-        if (string.IsNullOrEmpty(parameters.Content))
-            throw new ArgumentException(&quot;Content is required for WriteFileAtPosition operation&quot;);
-        if (!parameters.Position.HasValue)
-            throw new ArgumentException(&quot;Position is required for WriteFileAtPosition operation&quot;);
-        if (parameters.Position.Value &lt; 0)
-            throw new ArgumentException(&quot;Position cannot be negative&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        if (!File.Exists(validPath))
-        {
-            await File.WriteAllTextAsync(validPath, parameters.Content);
+                SearchAndReplaceOperation.SearchAndReplace =&gt; await SearchAndReplaceAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
         }
-        else
+        catch (Exception ex)
         {
-            var existingContent = await File.ReadAllTextAsync(validPath);
-            if (parameters.Position.Value &gt; existingContent.Length)
-            {
-                existingContent = existingContent.PadRight(parameters.Position.Value);
-            }
-            var newContent = existingContent.Insert(parameters.Position.Value, parameters.Content);
-            await File.WriteAllTextAsync(validPath, newContent);
+            _logger.LogError(ex, &quot;Error in search and replace operation&quot;);
+            throw;
         }
-        return $&quot;Successfully wrote content at position {parameters.Position.Value} in {parameters.Path}&quot;;
     }
-    private async Task&lt;string&gt; SearchPositionInFileWithRegexAsync(FilesystemParameters parameters)
-    {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for SearchPositionInFileWithRegex operation&quot;);
-        if (string.IsNullOrEmpty(parameters.Regex))
-            throw new ArgumentException(&quot;Regex is required for SearchPositionInFileWithRegex operation&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        var content = await File.ReadAllTextAsync(validPath);
-        var regex = new System.Text.RegularExpressions.Regex(parameters.Regex);
-        var matches = regex.Matches(content);
-        if (!matches.Any())
-            return &quot;No matches found&quot;;
-        var results = matches.Select(match =&gt; new
-        {
-            Position = match.Index,
-            Length = match.Length,
-            Value = match.Value
-        });
-        return string.Join(&quot;\n&quot;, results.Select(r =&gt;
-            $&quot;Position: {r.Position}, Length: {r.Length}, Value: {r.Value}&quot;));
-    }
-    private async Task&lt;string&gt; DeleteAtPositionAsync(FilesystemParameters parameters)
-    {
-        if (string.IsNullOrEmpty(parameters.Path))
-            throw new ArgumentException(&quot;Path is required for DeleteAtPosition operation&quot;);
-        if (!parameters.Position.HasValue)
-            throw new ArgumentException(&quot;Position is required for DeleteAtPosition operation&quot;);
-        if (!parameters.Length.HasValue || parameters.Length.Value &lt;= 0)
-            throw new ArgumentException(&quot;Length must be positive for DeleteAtPosition operation&quot;);
-        if (parameters.Position.Value &lt; 0)
-            throw new ArgumentException(&quot;Position cannot be negative&quot;);
-        var validPath = ValidatePath(parameters.Path);
-        var content = await File.ReadAllTextAsync(validPath);
-        if (parameters.Position.Value &gt;= content.Length)
-            throw new ArgumentException(&quot;Position is beyond end of file&quot;);
-        var effectiveLength = Math.Min(parameters.Length.Value, content.Length - parameters.Position.Value);
-        string newContent;
-        if (parameters.PreserveLength)
-        {
-            var spaces = new string(&apos; &apos;, effectiveLength);
-            newContent = content.Remove(parameters.Position.Value, effectiveLength)
-                              .Insert(parameters.Position.Value, spaces);
-        }
-        else
-        {
-            newContent = content.Remove(parameters.Position.Value, effectiveLength);
-        }
-        await File.WriteAllTextAsync(validPath, newContent);
-        return $&quot;Successfully deleted {effectiveLength} characters at position {parameters.Position.Value} in {parameters.Path}&quot;;
-    }
-    private async Task&lt;string&gt; SearchAndReplaceAsync(FilesystemParameters parameters)
+    private async Task&lt;string&gt; SearchAndReplaceAsync(SearchAndReplaceParameters parameters)
     {
         if (string.IsNullOrEmpty(parameters.Path))
             throw new ArgumentException(&quot;Path is required for SearchAndReplace operation&quot;);
@@ -682,7 +1410,7 @@ public class FilesystemToolHandler : ToolHandlerBase&lt;FilesystemParameters&gt;
             throw new ArgumentException(&quot;Regex pattern is required for SearchAndReplace operation&quot;);
         if (string.IsNullOrEmpty(parameters.Replacement))
             throw new ArgumentException(&quot;Replacement content is required for SearchAndReplace operation&quot;);
-        var validPath = ValidatePath(parameters.Path);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
         var content = await File.ReadAllTextAsync(validPath);
         var regex = new System.Text.RegularExpressions.Regex(parameters.Regex);
         var matches = regex.Matches(content);
@@ -709,7 +1437,498 @@ public class FilesystemToolHandler : ToolHandlerBase&lt;FilesystemParameters&gt;
         return $&quot;Successfully replaced {matches.Count} occurrences in {parameters.Path}&quot;;
     }
     public Task&lt;CallToolResult&gt; TestHandleAsync(
-        FilesystemParameters parameters,
+        SearchAndReplaceParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\SearchFilesToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;SearchFilesOperation&gt;))]
+public enum SearchFilesOperation
+{
+    [Description(&quot;Search for files matching a pattern in a directory&quot;)]
+    [Parameters(
+        &quot;Path: Directory to search in&quot;,
+        &quot;Pattern: Search pattern for files&quot;)]
+    SearchFiles
+}
+public class SearchFilesParameters
+{
+    public required SearchFilesOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public required string Pattern { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
+        if (Pattern != null) sb.Append($&quot;, Pattern: {Pattern}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(SearchFilesParameters))]
+public partial class SearchFilesParametersJsonContext : JsonSerializerContext { }
+public class SearchFilesToolHandler : ToolHandlerBase&lt;SearchFilesParameters&gt;
+{
+    private readonly ILogger&lt;SearchFilesToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public SearchFilesToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;SearchFilesToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;SearchFiles&quot;,
+        Description = typeof(SearchFilesOperation).GenerateFullDescription(),
+        InputSchema = SearchFilesParametersJsonContext.Default.SearchFilesParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        SearchFilesParametersJsonContext.Default.SearchFilesParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        SearchFilesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                SearchFilesOperation.SearchFiles =&gt; await SearchFilesAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in search files operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; SearchFilesAsync(SearchFilesParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for SearchFiles operation&quot;);
+        if (string.IsNullOrEmpty(parameters.Pattern))
+            throw new ArgumentException(&quot;Pattern is required for SearchFiles operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var results = Directory.GetFiles(validPath, $&quot;*{parameters.Pattern}*&quot;, SearchOption.AllDirectories)
+            .Where(file =&gt;
+            {
+                try
+                {
+                    _appConfig.ValidatePath(file);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            });
+        var fileList = results.ToList();
+        return Task.FromResult(fileList.Any()
+            ? string.Join(&quot;\n&quot;, fileList)
+            : &quot;No matches found&quot;);
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        SearchFilesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\SearchPositionInFileWithRegexToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using System.Text.RegularExpressions;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;SearchPositionInFileWithRegexOperation&gt;))]
+public enum SearchPositionInFileWithRegexOperation
+{
+    [Description(&quot;Searches for positions of regex pattern matches in a file&quot;)]
+    [Parameters(
+        &quot;Path: Full path of the file to examine&quot;,
+        &quot;Regex: Regular expression pattern to search for&quot;)]
+    SearchPositionInFileWithRegex
+}
+public class SearchPositionInFileWithRegexParameters
+{
+    public required SearchPositionInFileWithRegexOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public required string Regex { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
+        if (Regex != null) sb.Append($&quot;, Regex: {Regex}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(SearchPositionInFileWithRegexParameters))]
+public partial class SearchPositionInFileWithRegexParametersJsonContext : JsonSerializerContext { }
+public class SearchPositionInFileWithRegexToolHandler : ToolHandlerBase&lt;SearchPositionInFileWithRegexParameters&gt;
+{
+    private readonly ILogger&lt;SearchPositionInFileWithRegexToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public SearchPositionInFileWithRegexToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;SearchPositionInFileWithRegexToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;SearchPositionInFileWithRegex&quot;,
+        Description = typeof(SearchPositionInFileWithRegexOperation).GenerateFullDescription(),
+        InputSchema = SearchPositionInFileWithRegexParametersJsonContext.Default.SearchPositionInFileWithRegexParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        SearchPositionInFileWithRegexParametersJsonContext.Default.SearchPositionInFileWithRegexParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        SearchPositionInFileWithRegexParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                SearchPositionInFileWithRegexOperation.SearchPositionInFileWithRegex =&gt; await SearchPositionInFileWithRegexAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in regex search operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; SearchPositionInFileWithRegexAsync(SearchPositionInFileWithRegexParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for SearchPositionInFileWithRegex operation&quot;);
+        if (string.IsNullOrEmpty(parameters.Regex))
+            throw new ArgumentException(&quot;Regex pattern is required for SearchPositionInFileWithRegex operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var content = await File.ReadAllTextAsync(validPath);
+        var regex = new Regex(parameters.Regex);
+        var matches = regex.Matches(content);
+        if (!matches.Any())
+            return &quot;No matches found&quot;;
+        var results = matches.Select(match =&gt; new
+        {
+            Position = match.Index,
+            Length = match.Length,
+            Value = match.Value
+        });
+        return string.Join(&quot;\n&quot;, results.Select(r =&gt;
+            $&quot;Position: {r.Position}, Length: {r.Length}, Value: {r.Value}&quot;));
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        SearchPositionInFileWithRegexParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\WriteFileAtPositionToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;WriteFileAtPositionOperation&gt;))]
+public enum WriteFileAtPositionOperation
+{
+    [Description(&quot;Insert content into a file at a specific position&quot;)]
+    [Parameters(
+        &quot;Path: Full path of the file to modify&quot;,
+        &quot;Content: Content to insert&quot;,
+        &quot;Position: Insertion position in the file&quot;)]
+    WriteFileAtPosition
+}
+public class WriteFileAtPositionParameters
+{
+    public required WriteFileAtPositionOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public required string Content { get; init; }
+    public required int Position { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        sb.Append($&quot;, Path: {Path}&quot;);
+        sb.Append($&quot;, Content Length: {Content?.Length ?? 0}&quot;);
+        sb.Append($&quot;, Position: {Position}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(WriteFileAtPositionParameters))]
+public partial class WriteFileAtPositionParametersJsonContext : JsonSerializerContext { }
+public class WriteFileAtPositionToolHandler : ToolHandlerBase&lt;WriteFileAtPositionParameters&gt;
+{
+    private readonly ILogger&lt;WriteFileAtPositionToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public WriteFileAtPositionToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;WriteFileAtPositionToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;WriteFileAtPosition&quot;,
+        Description = typeof(WriteFileAtPositionOperation).GenerateFullDescription(),
+        InputSchema = WriteFileAtPositionParametersJsonContext.Default.WriteFileAtPositionParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        WriteFileAtPositionParametersJsonContext.Default.WriteFileAtPositionParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        WriteFileAtPositionParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                WriteFileAtPositionOperation.WriteFileAtPosition =&gt; await WriteFileAtPositionAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in write file at position operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; WriteFileAtPositionAsync(WriteFileAtPositionParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for WriteFileAtPosition operation&quot;);
+        if (string.IsNullOrEmpty(parameters.Content))
+            throw new ArgumentException(&quot;Content is required for WriteFileAtPosition operation&quot;);
+        if (parameters.Position &lt; 0)
+            throw new ArgumentException(&quot;Position cannot be negative&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var directory = Path.GetDirectoryName(validPath);
+        if (!string.IsNullOrEmpty(directory) &amp;&amp; !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+        string existingContent = &quot;&quot;;
+        if (File.Exists(validPath))
+        {
+            existingContent = await File.ReadAllTextAsync(validPath);
+        }
+        string newContent;
+        if (parameters.Position &gt; existingContent.Length)
+        {
+            newContent = existingContent.PadRight(parameters.Position) + parameters.Content;
+        }
+        else if (parameters.Position == 0)
+        {
+            if (existingContent.StartsWith(parameters.Content))
+            {
+                newContent = existingContent;
+            }
+            else
+            {
+                newContent = parameters.Content +
+                     (existingContent.Length &gt; parameters.Content.Length
+                         ? existingContent.Substring(parameters.Content.Length)
+                         : &quot;&quot;);
+            }
+        }
+        else
+        {
+            newContent = existingContent.Substring(0, parameters.Position) +
+                         parameters.Content +
+                         existingContent.Substring(parameters.Position);
+        }
+        await File.WriteAllTextAsync(validPath, newContent);
+        return $&quot;Successfully wrote content at position {parameters.Position} in {parameters.Path}&quot;;
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        WriteFileAtPositionParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Filesystem\WriteFileToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;WriteFileOperation&gt;))]
+public enum WriteFileOperation
+{
+    [Description(&quot;Writes content to a file, overwriting existing content&quot;)]
+    [Parameters(
+        &quot;Path: Complete path of the file to write&quot;,
+        &quot;Content: Content to write to the file&quot;)]
+    WriteFile
+}
+public class WriteFileParameters
+{
+    public required WriteFileOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public required string Content { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
+        if (Content != null) sb.Append($&quot;, Content length: {Content.Length}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(WriteFileParameters))]
+public partial class WriteFileParametersJsonContext : JsonSerializerContext { }
+public class WriteFileToolHandler : ToolHandlerBase&lt;WriteFileParameters&gt;
+{
+    private readonly ILogger&lt;WriteFileToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public WriteFileToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;WriteFileToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;WriteFile&quot;,
+        Description = typeof(WriteFileOperation).GenerateFullDescription(),
+        InputSchema = WriteFileParametersJsonContext.Default.WriteFileParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        WriteFileParametersJsonContext.Default.WriteFileParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        WriteFileParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                WriteFileOperation.WriteFile =&gt; await WriteFileAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in filesystem operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; WriteFileAsync(WriteFileParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for WriteFile operation&quot;);
+        if (string.IsNullOrEmpty(parameters.Content))
+            throw new ArgumentException(&quot;Content is required for WriteFile operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        await File.WriteAllTextAsync(validPath, parameters.Content);
+        return $&quot;Successfully wrote to {parameters.Path}&quot;;
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        WriteFileParameters parameters,
         CancellationToken cancellationToken = default
     )
     {
@@ -730,7 +1949,7 @@ namespace mcp_toolskit.Models
     {
         public string LogPath { get; set; } = AppContext.BaseDirectory;
         public string[] AllowedDirectories { get; set; } = Array.Empty&lt;string&gt;();
-        public string[] AllowedTools { get; set; } = Array.Empty&lt;string&gt;();
+        public string[] ForbiddenTools { get; set; } = Array.Empty&lt;string&gt;();
         public AppConfig()
         {
             NormalizePathProperties();
@@ -792,7 +2011,7 @@ namespace mcp_toolskit.Models
                 WriteIndented = true 
             });
         }
-        public string ValidatePath(string path)
+        public virtual string ValidatePath(string path)
         {
             var fullPath = Path.GetFullPath(path);
             if (!AllowedDirectories.Any(dir =&gt; fullPath.StartsWith(Path.GetFullPath(dir))))
@@ -800,6 +2019,14 @@ namespace mcp_toolskit.Models
                 throw new UnauthorizedAccessException($&quot;Access denied - path outside allowed directories: {fullPath}&quot;);
             }
             return fullPath;
+        }
+        public virtual bool ValidateTool(string tool_name)
+        {
+            if (ForbiddenTools.Any(tool =&gt; tool?.ToLower() == tool_name?.ToLower()))
+            {
+                return false;
+            }
+            return true;
         }
     }
 }
@@ -810,6 +2037,7 @@ namespace mcp_toolskit.Models
 <file path="mcp-toolskit\Program.cs">
 
 using mcp_toolskit.Handlers;
+using mcp_toolskit.Handlers.DotNet;
 using mcp_toolskit.Handlers.Filesystem;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -860,9 +2088,37 @@ namespace mcp_toolskit
                     services.AddSingleton(appConfig);
                 })
                 .ConfigureTools(tools =&gt; {
-                    if (appConfig.AllowedTools.Contains(&quot;ReadFile&quot;))
+                    if (appConfig.ValidateTool(&quot;ListAllowedDirectories&quot;))
+                        tools.AddHandler&lt;ListAllowedDirectoriesToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;ReadFile&quot;))
                         tools.AddHandler&lt;ReadFileToolHandler&gt;();
-                    if (appConfig.AllowedTools.Contains(&quot;Calculator&quot;))
+                    if (appConfig.ValidateTool(&quot;ReadMultipleFiles&quot;))
+                        tools.AddHandler&lt;ReadMultipleFilesToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;WriteFile&quot;))
+                        tools.AddHandler&lt;WriteFileToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;WriteFileAtPosition&quot;))
+                        tools.AddHandler&lt;WriteFileAtPositionToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;CreateDirectory&quot;))
+                        tools.AddHandler&lt;CreateDirectoryToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;ListDirectory&quot;))
+                        tools.AddHandler&lt;ListDirectoryToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;MoveFile&quot;))
+                        tools.AddHandler&lt;MoveFileToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;SearchFiles&quot;))
+                        tools.AddHandler&lt;SearchFilesToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;SearchPositionInFileWithRegex&quot;))
+                        tools.AddHandler&lt;SearchPositionInFileWithRegexToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;GetFileInfo&quot;))
+                        tools.AddHandler&lt;GetFileInfoToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;DeleteAtPosition&quot;))
+                        tools.AddHandler&lt;DeleteAtPositionToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;SearchAndReplace&quot;))
+                        tools.AddHandler&lt;SearchAndReplaceToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;DeleteFile&quot;))
+                        tools.AddHandler&lt;DeleteFileToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;DotNet&quot;))
+                        tools.AddHandler&lt;DotNetToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;Calculator&quot;))
                         tools.AddHandler&lt;CalculatorToolHandler&gt;();
                 })
                 .Build();
@@ -880,6 +2136,643 @@ namespace mcp_toolskit
                 await server.DisposeAsync();
                 Log.CloseAndFlush(); 
             }
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit-tests\TestHandlers\DotNet\DotNetToolHandlerTests.cs">
+
+using mcp_toolskit.Handlers.DotNet;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using Moq;
+using System.Text.RegularExpressions;
+namespace mcp_toolskit_tests.TestHandlers.DotNet
+{
+    public class TestDotNetToolHandler
+    {
+        private readonly Mock&lt;IServerContext&gt; _mockServerContext;
+        private readonly Mock&lt;ISessionContext&gt; _mockSessionContext;
+        private readonly Mock&lt;ILogger&lt;DotNetToolHandler&gt;&gt; _mockLogger;
+        private readonly TestAppConfig _appConfig;
+        private readonly DotNetToolHandler _handler;
+        private readonly string _testBasePath = Path.Combine(Path.GetTempPath(), &quot;mcp-toolskit-tests&quot;, &quot;dotnet&quot;);
+        public class TestAppConfig : AppConfig
+        {
+            public override string ValidatePath(string path)
+            {
+                return Path.GetFullPath(path);
+            }
+        }
+        public TestDotNetToolHandler()
+        {
+            _mockServerContext = new Mock&lt;IServerContext&gt;();
+            _mockSessionContext = new Mock&lt;ISessionContext&gt;();
+            _mockLogger = new Mock&lt;ILogger&lt;DotNetToolHandler&gt;&gt;();
+            _appConfig = new TestAppConfig();
+            _handler = new DotNetToolHandler(
+                _mockServerContext.Object,
+                _mockSessionContext.Object,
+                _mockLogger.Object,
+                _appConfig
+            );
+            Directory.CreateDirectory(_testBasePath);
+        }
+        [Fact]
+        public async Task RunTests_WithValidSolutionFile_ShouldReturnTestResults()
+        {
+            var tempSolutionFile = Path.Combine(_testBasePath, &quot;TestSolution.sln&quot;);
+            File.WriteAllText(tempSolutionFile, &quot;Mock Solution File&quot;);
+            var parameters = new DotNetParameters
+            {
+                Operation = DotNetOperation.RunTests,
+                SolutionFile = tempSolutionFile
+            };
+            try 
+            {
+                var result = await InvokeHandleAsync(parameters);
+                Assert.NotNull(result);
+                Assert.NotNull(result.Content);
+                Assert.True(result.Content.Length &gt; 0);
+                var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+                Assert.NotNull(textContent.Text);
+                _mockLogger.Verify(
+                    x =&gt; x.Log(
+                        LogLevel.Information, 
+                        It.IsAny&lt;EventId&gt;(), 
+                        It.Is&lt;It.IsAnyType&gt;((v, t) =&gt; v.ToString().Contains(&quot;Running dotnet command&quot;)),
+                        null, 
+                        It.IsAny&lt;Func&lt;It.IsAnyType, Exception, string&gt;&gt;()
+                    ), 
+                    Times.AtLeastOnce()
+                );
+            }
+            finally 
+            {
+                if (File.Exists(tempSolutionFile))
+                    File.Delete(tempSolutionFile);
+            }
+        }
+        [Theory]
+        [InlineData(null)]
+        [InlineData(&quot;&quot;)]
+        public async Task RunTests_WithInvalidSolutionFile_ShouldThrowArgumentException(string invalidPath)
+        {
+            var parameters = new DotNetParameters
+            {
+                Operation = DotNetOperation.RunTests,
+                SolutionFile = invalidPath
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await InvokeHandleAsync(parameters)
+            );
+        }
+        [Fact]
+        public async Task RunTests_WithNonExistentPath_ShouldThrowDirectoryNotFoundException()
+        {
+            var nonExistentPath = Path.Combine(_testBasePath, &quot;nonexistent&quot;, &quot;Solution.sln&quot;);
+            var parameters = new DotNetParameters
+            {
+                Operation = DotNetOperation.RunTests,
+                SolutionFile = nonExistentPath
+            };
+            await Assert.ThrowsAsync&lt;DirectoryNotFoundException&gt;(
+                async () =&gt; await InvokeHandleAsync(parameters)
+            );
+        }
+        [Fact]
+        public async Task RunTests_WithInvalidOperation_ShouldThrowArgumentException()
+        {
+            var parameters = new DotNetParameters
+            {
+                Operation = (DotNetOperation)999, 
+                SolutionFile = Path.Combine(_testBasePath, &quot;TestSolution.sln&quot;)
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await InvokeHandleAsync(parameters)
+            );
+        }
+        private async Task&lt;CallToolResult&gt; InvokeHandleAsync(DotNetParameters parameters)
+        {
+            var method = typeof(DotNetToolHandler)
+                .GetMethod(&quot;HandleAsync&quot;, 
+                    System.Reflection.BindingFlags.NonPublic | 
+                    System.Reflection.BindingFlags.Instance);
+            if (method == null)
+                throw new InvalidOperationException(&quot;Method HandleAsync not found&quot;);
+            return await (Task&lt;CallToolResult&gt;)method.Invoke(_handler, new object[] { parameters, CancellationToken.None });
+        }
+        public void Dispose()
+        {
+            if (Directory.Exists(_testBasePath))
+                Directory.Delete(_testBasePath, true);
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit-tests\TestHandlers\Filesystem\CreateDirectoryToolHandler.cs">
+
+using mcp_toolskit.Handlers.Filesystem;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using Moq;
+namespace mcp_toolskit_tests.TestHandlers.Filesystem
+{
+    public class TestCreateDirectoryToolHandler
+    {
+        private readonly Mock&lt;IServerContext&gt; _mockServerContext;
+        private readonly Mock&lt;ISessionContext&gt; _mockSessionContext;
+        private readonly Mock&lt;ILogger&lt;CreateDirectoryToolHandler&gt;&gt; _mockLogger;
+        private readonly TestAppConfig _appConfig;
+        private readonly CreateDirectoryToolHandler _handler;
+        private readonly string _testBasePath = Path.Combine(Path.GetTempPath(), &quot;mcp-toolskit-tests&quot;);
+        public class TestAppConfig : AppConfig
+        {
+            public override string ValidatePath(string path)
+            {
+                return Path.GetFullPath(path);
+            }
+        }
+        public TestCreateDirectoryToolHandler()
+        {
+            _mockServerContext = new Mock&lt;IServerContext&gt;();
+            _mockSessionContext = new Mock&lt;ISessionContext&gt;();
+            _mockLogger = new Mock&lt;ILogger&lt;CreateDirectoryToolHandler&gt;&gt;();
+            _appConfig = new TestAppConfig();
+            _handler = new CreateDirectoryToolHandler(
+                _mockServerContext.Object,
+                _mockSessionContext.Object,
+                _mockLogger.Object,
+                _appConfig
+            );
+            Directory.CreateDirectory(_testBasePath);
+        }
+        [Theory]
+        [InlineData(&quot;testDir1&quot;)]
+        [InlineData(&quot;path/to/nested/directory&quot;)]
+        [InlineData(&quot;path\\to\\nested\\directory2&quot;)]
+        [InlineData(&quot;directory with spaces&quot;)]
+        public async Task CreateDirectory_ShouldCreateDirectory(string directoryPath)
+        {
+            var relativePath = Path.Combine(_testBasePath, directoryPath);
+            var parameters = new CreateDirectoryParameters
+            {
+                Operation = CreateDirectoryOperation.CreateDirectory,
+                Path = relativePath
+            };
+            if (Directory.Exists(relativePath))
+                Directory.Delete(relativePath, true);
+            try
+            {
+                var result = await _handler.TestHandleAsync(parameters, default);
+                Assert.NotNull(result);
+                Assert.True(result.Content.Length &gt; 0);
+                var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+                Assert.Contains($&quot;Successfully created directory {relativePath}&quot;, textContent.Text);
+                Assert.True(Directory.Exists(relativePath));
+            }
+            finally
+            {
+                if (Directory.Exists(relativePath))
+                    Directory.Delete(relativePath, true);
+            }
+        }
+        [Theory]
+        [InlineData(&quot;&quot;)]
+        [InlineData(null)]
+        public async Task CreateDirectory_WithInvalidPath_ShouldThrowArgumentException(string directoryPath)
+        {
+            var parameters = new CreateDirectoryParameters
+            {
+                Operation = CreateDirectoryOperation.CreateDirectory,
+                Path = directoryPath
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Fact]
+        public async Task CreateDirectory_WithInvalidOperation_ShouldThrowArgumentException()
+        {
+            var parameters = new CreateDirectoryParameters
+            {
+                Operation = (CreateDirectoryOperation)999, 
+                Path = Path.Combine(_testBasePath, &quot;test&quot;)
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        public void Dispose()
+        {
+            if (Directory.Exists(_testBasePath))
+                Directory.Delete(_testBasePath, true);
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit-tests\TestHandlers\Filesystem\DeleteAtPositionToolHandler.cs">
+
+using mcp_toolskit.Handlers.Filesystem;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using Moq;
+namespace mcp_toolskit_tests.TestHandlers.Filesystem
+{
+    public class TestDeleteAtPositionToolHandler : IDisposable
+    {
+        private readonly Mock&lt;IServerContext&gt; _mockServerContext;
+        private readonly Mock&lt;ISessionContext&gt; _mockSessionContext;
+        private readonly Mock&lt;ILogger&lt;DeleteAtPositionToolHandler&gt;&gt; _mockLogger;
+        private readonly AppConfig _appConfig;
+        private readonly DeleteAtPositionToolHandler _handler;
+        private readonly string _testBasePath = Path.Combine(Path.GetTempPath(), &quot;mcp-toolskit-tests&quot;);
+        private readonly string _testFilePath;
+        public TestDeleteAtPositionToolHandler()
+        {
+            _mockServerContext = new Mock&lt;IServerContext&gt;();
+            _mockSessionContext = new Mock&lt;ISessionContext&gt;();
+            _mockLogger = new Mock&lt;ILogger&lt;DeleteAtPositionToolHandler&gt;&gt;();
+            _appConfig = new AppConfig 
+            { 
+                AllowedDirectories = new string[] { _testBasePath }
+            };
+            _handler = new DeleteAtPositionToolHandler(
+                _mockServerContext.Object,
+                _mockSessionContext.Object,
+                _mockLogger.Object,
+                _appConfig
+            );
+            Directory.CreateDirectory(_testBasePath);
+            _testFilePath = Path.Combine(_testBasePath, &quot;test.txt&quot;);
+        }
+        [Theory]
+        [InlineData(&quot;Hello World!&quot;, 6, 5, false, &quot;Hello !&quot;)] 
+        [InlineData(&quot;Hello World!&quot;, 6, 5, true, &quot;Hello      !&quot;)] 
+        [InlineData(&quot;Test Content&quot;, 0, 4, false, &quot; Content&quot;)] 
+        public async Task DeleteAtPosition_ShouldModifyFileCorrectly(
+            string initialContent,
+            int position,
+            int length,
+            bool preserveLength,
+            string expectedContent)
+        {
+            await File.WriteAllTextAsync(_testFilePath, initialContent);
+            var parameters = new DeleteAtPositionParameters
+            {
+                Operation = DeleteAtPositionOperation.DeleteAtPosition,
+                Path = _testFilePath,
+                Position = position,
+                Length = length,
+                PreserveLength = preserveLength
+            };
+            try
+            {
+                var result = await _handler.TestHandleAsync(parameters, default);
+                Assert.NotNull(result);
+                Assert.True(result.Content.Length &gt; 0);
+                var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+                Assert.Contains($&quot;Successfully deleted&quot;, textContent.Text);
+                var actualContent = await File.ReadAllTextAsync(_testFilePath);
+                Assert.Equal(expectedContent, actualContent);
+            }
+            finally
+            {
+                if (File.Exists(_testFilePath))
+                    File.Delete(_testFilePath);
+            }
+        }
+        [Theory]
+        [InlineData(&quot;&quot;)]
+        [InlineData(null)]
+        public async Task DeleteAtPosition_WithInvalidPath_ShouldThrowArgumentException(string filePath)
+        {
+            var parameters = new DeleteAtPositionParameters
+            {
+                Operation = DeleteAtPositionOperation.DeleteAtPosition,
+                Path = filePath,
+                Position = 0,
+                Length = 1,
+                PreserveLength = false
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Theory]
+        [InlineData(-1, 5)] 
+        [InlineData(0, 0)] 
+        [InlineData(0, -1)] 
+        public async Task DeleteAtPosition_WithInvalidParameters_ShouldThrowArgumentException(
+            int position,
+            int length)
+        {
+            await File.WriteAllTextAsync(_testFilePath, &quot;Test Content&quot;);
+            var parameters = new DeleteAtPositionParameters
+            {
+                Operation = DeleteAtPositionOperation.DeleteAtPosition,
+                Path = _testFilePath,
+                Position = position,
+                Length = length,
+                PreserveLength = false
+            };
+            try
+            {
+                await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                    async () =&gt; await _handler.TestHandleAsync(parameters, default)
+                );
+            }
+            finally
+            {
+                if (File.Exists(_testFilePath))
+                    File.Delete(_testFilePath);
+            }
+        }
+        [Fact]
+        public async Task DeleteAtPosition_WithPositionBeyondFileEnd_ShouldThrowArgumentException()
+        {
+            var content = &quot;Short text&quot;;
+            await File.WriteAllTextAsync(_testFilePath, content);
+            var parameters = new DeleteAtPositionParameters
+            {
+                Operation = DeleteAtPositionOperation.DeleteAtPosition,
+                Path = _testFilePath,
+                Position = content.Length + 1, 
+                Length = 5,
+                PreserveLength = false
+            };
+            try
+            {
+                await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                    async () =&gt; await _handler.TestHandleAsync(parameters, default)
+                );
+            }
+            finally
+            {
+                if (File.Exists(_testFilePath))
+                    File.Delete(_testFilePath);
+            }
+        }
+        [Fact]
+        public async Task DeleteAtPosition_WithUnauthorizedPath_ShouldThrowUnauthorizedAccessException()
+        {
+            var unauthorizedPath = Path.Combine(Path.GetTempPath(), &quot;unauthorized&quot;, &quot;test.txt&quot;);
+            var parameters = new DeleteAtPositionParameters
+            {
+                Operation = DeleteAtPositionOperation.DeleteAtPosition,
+                Path = unauthorizedPath,
+                Position = 0,
+                Length = 5,
+                PreserveLength = false
+            };
+            await Assert.ThrowsAsync&lt;UnauthorizedAccessException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Fact]
+        public async Task DeleteAtPosition_WithInvalidOperation_ShouldThrowArgumentException()
+        {
+            var parameters = new DeleteAtPositionParameters
+            {
+                Operation = (DeleteAtPositionOperation)999, 
+                Path = _testFilePath,
+                Position = 0,
+                Length = 5,
+                PreserveLength = false
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        public void Dispose()
+        {
+            if (Directory.Exists(_testBasePath))
+                Directory.Delete(_testBasePath, true);
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit-tests\TestHandlers\Filesystem\WriteFileAtPositionToolHandler.cs">
+
+using mcp_toolskit.Handlers.Filesystem;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using Moq;
+namespace mcp_toolskit_tests.TestHandlers.Filesystem
+{
+    public class TestWriteFileAtPositionToolHandler : IDisposable
+    {
+        private readonly Mock&lt;IServerContext&gt; _mockServerContext;
+        private readonly Mock&lt;ISessionContext&gt; _mockSessionContext;
+        private readonly Mock&lt;ILogger&lt;WriteFileAtPositionToolHandler&gt;&gt; _mockLogger;
+        private readonly TestAppConfig _appConfig;
+        private readonly WriteFileAtPositionToolHandler _handler;
+        private readonly string _testBasePath;
+        private readonly object _lock = new object();
+        public class TestAppConfig : AppConfig
+        {
+            public override string ValidatePath(string path)
+            {
+                return Path.GetFullPath(path);
+            }
+        }
+        public TestWriteFileAtPositionToolHandler()
+        {
+            _testBasePath = Path.Combine(Path.GetTempPath(), &quot;mcp-toolskit-tests&quot;, Guid.NewGuid().ToString().Replace(&quot;-&quot;,&quot;&quot;));
+            _mockServerContext = new Mock&lt;IServerContext&gt;();
+            _mockSessionContext = new Mock&lt;ISessionContext&gt;();
+            _mockLogger = new Mock&lt;ILogger&lt;WriteFileAtPositionToolHandler&gt;&gt;();
+            _appConfig = new TestAppConfig();
+            _handler = new WriteFileAtPositionToolHandler(
+                _mockServerContext.Object,
+                _mockSessionContext.Object,
+                _mockLogger.Object,
+                _appConfig
+            );
+            EnsureDirectoryExists(_testBasePath);
+        }
+        private void EnsureDirectoryExists(string path)
+        {
+            lock (_lock)
+            {
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+            }
+        }
+        private void CleanupDirectory(string path)
+        {
+            lock (_lock)
+            {
+                if (Directory.Exists(path))
+                {
+                    try 
+                    {
+                        Directory.Delete(path, true);
+                    }
+                    catch (IOException)
+                    {
+                        Thread.Sleep(100);
+                        if (Directory.Exists(path))
+                        {
+                            Directory.Delete(path, true);
+                        }
+                    }
+                }
+            }
+        }
+        private string GetTestPath(string filename)
+        {
+            var path = Path.Combine(_testBasePath, filename);
+            EnsureDirectoryExists(Path.GetDirectoryName(path));
+            return path;
+        }
+        [Theory]
+        [InlineData(&quot;test.txt&quot;, &quot;Hello&quot;, 0, &quot;Hello world&quot;, &quot;Hello world&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;totos&quot;, 0, &quot;Hello world&quot;, &quot;totos world&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot; world&quot;, 5, &quot;Hello&quot;, &quot;Hello world&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Test&quot;, 10, &quot;Hello&quot;, &quot;Hello     Test&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot; awesome&quot;, 5, &quot;Hello world!&quot;, &quot;Hello awesome world!&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot; &quot;, 6, &quot;Hello!&quot;, &quot;Hello! &quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;New&quot;, 0, &quot;&quot;, &quot;New&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Middle&quot;, 7, &quot;1234567890&quot;, &quot;1234567Middle890&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Extra&quot;, 0, &quot;Extra&quot;, &quot;Extra&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Padding&quot;, 3, &quot;ABCDEF&quot;, &quot;ABCPaddingDEF&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Append&quot;, 10, &quot;Existing&quot;, &quot;Existing  Append&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Multi&quot;, 3, &quot;A B C D E F&quot;, &quot;A BMulti C D E F&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Special!&quot;, 3, &quot;Chars~@$#&quot;, &quot;ChaSpecial!rs~@$#&quot;)] 
+        public async Task WriteFileAtPosition_ShouldWriteContentCorrectly(string filename, string content, int position, string initialContent, string expectedFinalContent)
+        {
+            await Task.Delay(100);  
+            var filePath = GetTestPath(filename);
+            if (!string.IsNullOrEmpty(initialContent))
+            {
+                await File.WriteAllTextAsync(filePath, initialContent);
+            }
+            var parameters = new WriteFileAtPositionParameters
+            {
+                Operation = WriteFileAtPositionOperation.WriteFileAtPosition,
+                Path = filePath,
+                Content = content,
+                Position = position
+            };
+            try
+            {
+                var result = await _handler.TestHandleAsync(parameters, default);
+                Assert.NotNull(result);
+                Assert.True(result.Content.Length &gt; 0);
+                var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+                Assert.Contains($&quot;Successfully wrote content at position {position} in {filePath}&quot;, textContent.Text);
+                var actualContent = await File.ReadAllTextAsync(filePath);
+                Assert.Equal(expectedFinalContent, actualContent);
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                {
+                    try
+                    {
+                        File.Delete(filePath);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                }
+            }
+        }
+        [Theory]
+        [InlineData(&quot;&quot;)]
+        [InlineData(null)]
+        public async Task WriteFileAtPosition_WithInvalidPath_ShouldThrowArgumentException(string filePath)
+        {
+            var parameters = new WriteFileAtPositionParameters
+            {
+                Operation = WriteFileAtPositionOperation.WriteFileAtPosition,
+                Path = filePath,
+                Content = &quot;Test content&quot;,
+                Position = 0
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Theory]
+        [InlineData(&quot;test.txt&quot;, &quot;&quot;, 0)]
+        [InlineData(&quot;test.txt&quot;, null, 0)]
+        public async Task WriteFileAtPosition_WithInvalidContent_ShouldThrowArgumentException(string filename, string content, int position)
+        {
+            var filePath = GetTestPath(filename);
+            var parameters = new WriteFileAtPositionParameters
+            {
+                Operation = WriteFileAtPositionOperation.WriteFileAtPosition,
+                Path = filePath,
+                Content = content,
+                Position = position
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Fact]
+        public async Task WriteFileAtPosition_WithNegativePosition_ShouldThrowArgumentException()
+        {
+            var filePath = GetTestPath(&quot;test.txt&quot;);
+            var parameters = new WriteFileAtPositionParameters
+            {
+                Operation = WriteFileAtPositionOperation.WriteFileAtPosition,
+                Path = filePath,
+                Content = &quot;Test content&quot;,
+                Position = -1
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Fact]
+        public async Task WriteFileAtPosition_WithInvalidOperation_ShouldThrowArgumentException()
+        {
+            var filePath = GetTestPath(&quot;test.txt&quot;);
+            var parameters = new WriteFileAtPositionParameters
+            {
+                Operation = (WriteFileAtPositionOperation)999, 
+                Path = filePath,
+                Content = &quot;Test content&quot;,
+                Position = 0
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        public void Dispose()
+        {
+            CleanupDirectory(Path.Combine(Path.GetTempPath(), &quot;mcp-toolskit-tests&quot;));
         }
     }
 }
@@ -1208,239 +3101,6 @@ namespace mcp_toolskit_tests.TestHandlers
             Assert.NotNull(result);
             var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
             Assert.Equal(expected.ToString(), textContent.Text);
-        }
-    }
-}
-
-</file>
-
-
-<file path="mcp-toolskit-tests\TestHandlers\TestFilesystemToolHandler.cs">
-
-using mcp_toolskit.Handlers;
-using mcp_toolskit.Models;
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.NET.Server.Contexts;
-using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
-using Moq;
-namespace mcp_toolskit_tests.TestHandlers
-{
-    public class TestFilesystemToolHandler : IDisposable
-    {
-        private readonly Mock&lt;IServerContext&gt; _mockServerContext;
-        private readonly Mock&lt;ISessionContext&gt; _mockSessionContext;
-        private readonly Mock&lt;ILogger&lt;FilesystemToolHandler&gt;&gt; _mockLogger;
-        private readonly FilesystemToolHandler _handler;
-        private readonly string _testDirectory;
-        private readonly AppConfig _appConfig;
-        public TestFilesystemToolHandler()
-        {
-            _testDirectory = Path.Combine(Path.GetTempPath(), &quot;FilesystemToolHandlerTests_&quot; + Guid.NewGuid().ToString());
-            Directory.CreateDirectory(_testDirectory);
-            _appConfig = new AppConfig
-            {
-                AllowedDirectories = new[] { _testDirectory }
-            };
-            _mockServerContext = new Mock&lt;IServerContext&gt;();
-            _mockSessionContext = new Mock&lt;ISessionContext&gt;();
-            _mockLogger = new Mock&lt;ILogger&lt;FilesystemToolHandler&gt;&gt;();
-            _handler = new FilesystemToolHandler(
-                _mockServerContext.Object,
-                _mockSessionContext.Object,
-                _mockLogger.Object,
-                _appConfig
-            );
-        }
-        public void Dispose()
-        {
-            if (Directory.Exists(_testDirectory))
-            {
-                Directory.Delete(_testDirectory, true);
-            }
-        }
-        [Fact]
-        public async Task WriteFile_ShouldCreateFileWithContent()
-        {
-            string testFileName = &quot;test.txt&quot;;
-            string testContent = &quot;Hello, World!&quot;;
-            string testFilePath = Path.Combine(_testDirectory, testFileName);
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.WriteFile,
-                Path = testFilePath,
-                Content = testContent
-            };
-            var result = await _handler.TestHandleAsync(parameters, default);
-            Assert.NotNull(result);
-            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
-            Assert.Equal($&quot;Successfully wrote to {testFilePath}&quot;, textContent.Text);
-            Assert.True(File.Exists(testFilePath));
-            string actualContent = await File.ReadAllTextAsync(testFilePath);
-            Assert.Equal(testContent, actualContent);
-        }
-        [Fact]
-        public async Task WriteFile_ShouldThrowException_WhenPathOutsideAllowedDirectories()
-        {
-            string testFilePath = Path.Combine(Path.GetTempPath(), &quot;unauthorized.txt&quot;);
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.WriteFile,
-                Path = testFilePath,
-                Content = &quot;Test content&quot;
-            };
-            await Assert.ThrowsAsync&lt;UnauthorizedAccessException&gt;(
-                async () =&gt; await _handler.TestHandleAsync(parameters, default)
-            );
-        }
-        [Fact]
-        public async Task WriteFile_ShouldThrowException_WhenPathIsNull()
-        {
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.WriteFile,
-                Path = null,
-                Content = &quot;Test content&quot;
-            };
-            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
-                async () =&gt; await _handler.TestHandleAsync(parameters, default)
-            );
-        }
-        [Fact]
-        public async Task WriteFile_ShouldThrowException_WhenContentIsNull()
-        {
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.WriteFile,
-                Path = Path.Combine(_testDirectory, &quot;test.txt&quot;),
-                Content = null
-            };
-            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
-                async () =&gt; await _handler.TestHandleAsync(parameters, default)
-            );
-        }
-        [Fact]
-        public async Task WriteFileAtPosition_ShouldWriteContentAtSpecificPosition()
-        {
-            string testFileName = &quot;test.txt&quot;;
-            string initialContent = &quot;Hello World!&quot;;
-            string contentToInsert = &quot;Beautiful &quot;;
-            int position = 6;  
-            string testFilePath = Path.Combine(_testDirectory, testFileName);
-            await File.WriteAllTextAsync(testFilePath, initialContent);
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.WriteFileAtPosition,
-                Path = testFilePath,
-                Content = contentToInsert,
-                Position = position
-            };
-            var result = await _handler.TestHandleAsync(parameters, default);
-            Assert.NotNull(result);
-            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
-            Assert.Equal($&quot;Successfully wrote content at position {position} in {testFilePath}&quot;, textContent.Text);
-            string actualContent = await File.ReadAllTextAsync(testFilePath);
-            Assert.Equal(&quot;Hello Beautiful World!&quot;, actualContent);
-        }
-        [Fact]
-        public async Task WriteFileAtPosition_ShouldCreateNewFile_WhenFileDoesNotExist()
-        {
-            string testFileName = &quot;newfile.txt&quot;;
-            string contentToWrite = &quot;New Content&quot;;
-            string testFilePath = Path.Combine(_testDirectory, testFileName);
-            int position = 0;
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.WriteFileAtPosition,
-                Path = testFilePath,
-                Content = contentToWrite,
-                Position = position
-            };
-            var result = await _handler.TestHandleAsync(parameters, default);
-            Assert.NotNull(result);
-            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
-            Assert.Equal($&quot;Successfully wrote content at position {position} in {testFilePath}&quot;, textContent.Text);
-            Assert.True(File.Exists(testFilePath));
-            string actualContent = await File.ReadAllTextAsync(testFilePath);
-            Assert.Equal(contentToWrite, actualContent);
-        }
-        [Fact]
-        public async Task WriteFileAtPosition_ShouldPadWithSpaces_WhenPositionBeyondFileEnd()
-        {
-            string testFileName = &quot;test.txt&quot;;
-            string initialContent = &quot;Short&quot;;
-            string contentToInsert = &quot;End&quot;;
-            int position = 10;  
-            string testFilePath = Path.Combine(_testDirectory, testFileName);
-            await File.WriteAllTextAsync(testFilePath, initialContent);
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.WriteFileAtPosition,
-                Path = testFilePath,
-                Content = contentToInsert,
-                Position = position
-            };
-            var result = await _handler.TestHandleAsync(parameters, default);
-            Assert.NotNull(result);
-            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
-            Assert.Equal($&quot;Successfully wrote content at position {position} in {testFilePath}&quot;, textContent.Text);
-            string actualContent = await File.ReadAllTextAsync(testFilePath);
-            Assert.Equal(&quot;Short     End&quot;, actualContent);  
-        }
-        [Fact]
-        public async Task SearchPositionInFileWithRegex_ShouldReturnAllMatches()
-        {
-            string testFileName = &quot;test.txt&quot;;
-            string fileContent = &quot;Hello World! Hello Again! Hello Final!&quot;;
-            string regex = @&quot;Hello&quot;;
-            string testFilePath = Path.Combine(_testDirectory, testFileName);
-            await File.WriteAllTextAsync(testFilePath, fileContent);
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.SearchPositionInFileWithRegex,
-                Path = testFilePath,
-                Regex = regex  
-            };
-            var result = await _handler.TestHandleAsync(parameters, default);
-            Assert.NotNull(result);
-            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
-            string resultText = textContent.Text;
-            Assert.Contains(&quot;Position: 0&quot;, resultText);
-            Assert.Contains(&quot;Position: 13&quot;, resultText);
-            Assert.Contains(&quot;Position: 26&quot;, resultText);
-            Assert.Contains(&quot;Length: 5&quot;, resultText);
-            Assert.Contains(&quot;Value: Hello&quot;, resultText);
-        }
-        [Fact]
-        public async Task SearchPositionInFileWithRegex_ShouldReturnNoMatches_WhenPatternNotFound()
-        {
-            string testFileName = &quot;test.txt&quot;;
-            string fileContent = &quot;Hello World!&quot;;
-            string regex = @&quot;NotFound&quot;;
-            string testFilePath = Path.Combine(_testDirectory, testFileName);
-            await File.WriteAllTextAsync(testFilePath, fileContent);
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.SearchPositionInFileWithRegex,
-                Path = testFilePath,
-                Regex = regex
-            };
-            var result = await _handler.TestHandleAsync(parameters, default);
-            Assert.NotNull(result);
-            var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
-            Assert.Equal(&quot;No matches found&quot;, textContent.Text);
-        }
-        [Fact]
-        public async Task SearchPositionInFileWithRegex_ShouldThrowException_WhenRegexIsNull()
-        {
-            var parameters = new FilesystemParameters
-            {
-                Operation = FilesystemOperation.SearchPositionInFileWithRegex,
-                Path = Path.Combine(_testDirectory, &quot;test.txt&quot;),
-                Regex = null
-            };
-            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
-                async () =&gt; await _handler.TestHandleAsync(parameters, default)
-            );
         }
     }
 }

@@ -8,9 +8,23 @@ mcp-toolskit
     Handlers
         Calculator
             CalculatorToolHandler.cs
+        DotNet
+            DotNetToolHandler.cs
         Filesystem
+            CreateDirectoryToolHandler.cs
+            DeleteAtPositionToolHandler.cs
+            DeleteFileToolHandler.cs
+            GetFileInfoToolHandler.cs
+            ListAllowedDirectoriesToolHandler.cs
+            ListDirectoryToolHandler.cs
+            MoveFileToolHandler.cs
             ReadFileToolHandler.cs
-        FilesystemToolHandler.cs
+            ReadMultipleFilesToolHandler.cs
+            SearchAndReplaceToolHandler.cs
+            SearchFilesToolHandler.cs
+            SearchPositionInFileWithRegexToolHandler.cs
+            WriteFileAtPositionToolHandler.cs
+            WriteFileToolHandler.cs
     Helpers
     Models
         AppConfig.cs
@@ -24,14 +38,22 @@ mcp-toolskit
     Program.cs
 mcp-toolskit-tests
     TestHandlers
+        DotNet
+            DotNetToolHandlerTests.cs
+        Filesystem
+            CreateDirectoryToolHandler.cs
+            DeleteAtPositionToolHandler.cs
+            WriteFileAtPositionToolHandler.cs
         TestCalculatorToolHandler.cs
-        TestFilesystemToolHandler.cs
+    TestResults
+        TestResults.trx
     mcp-toolskit-tests.csproj
 .gitignore
 ExtractSolution.cmd
 ExtractSolutionCode.ps1
 LICENSE
 mcp-toolskit.sln
+nuget.config
 README.md
 SolutionSourceCode.txt
 SolutionStructure.ps1

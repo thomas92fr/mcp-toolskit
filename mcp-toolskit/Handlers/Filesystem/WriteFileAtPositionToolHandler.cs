@@ -1,4 +1,4 @@
-﻿using mcp_toolskit.Attributes;
+using mcp_toolskit.Attributes;
 using mcp_toolskit.Extentions;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.Logging;
@@ -127,6 +127,7 @@ public class WriteFileAtPositionToolHandler : ToolHandlerBase<WriteFileAtPositio
         }
     }
 
+   
     private async Task<string> WriteFileAtPositionAsync(WriteFileAtPositionParameters parameters)
     {
         if (string.IsNullOrEmpty(parameters.Path))
@@ -138,29 +139,57 @@ public class WriteFileAtPositionToolHandler : ToolHandlerBase<WriteFileAtPositio
 
         var validPath = _appConfig.ValidatePath(parameters.Path);
 
-        // Si le fichier n'existe pas, on le crée avec le contenu à la position 0
-        if (!File.Exists(validPath))
+        // Ensure directory exists
+        var directory = Path.GetDirectoryName(validPath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
         {
-            await File.WriteAllTextAsync(validPath, parameters.Content);
+            Directory.CreateDirectory(directory);
+        }
+
+        string existingContent = "";
+        if (File.Exists(validPath))
+        {
+            existingContent = await File.ReadAllTextAsync(validPath);
+        }
+
+        string newContent;
+
+        if (parameters.Position > existingContent.Length)
+        {
+            // Si la position est au-delà de la fin du contenu, on ajoute des espaces
+            newContent = existingContent.PadRight(parameters.Position) + parameters.Content;
+        }
+        else if (parameters.Position == 0)
+        {
+            // Remplacer le début du texte, si nécessaire
+            if (existingContent.StartsWith(parameters.Content))
+            {
+                newContent = existingContent;
+            }
+            else
+            {
+                //newContent = parameters.Content + existingContent.Substring(parameters.Content.Length);
+                newContent = parameters.Content +
+                     (existingContent.Length > parameters.Content.Length
+                         ? existingContent.Substring(parameters.Content.Length)
+                         : "");
+            }
         }
         else
         {
-            // Lire le contenu existant
-            var existingContent = await File.ReadAllTextAsync(validPath);
-
-            // Si la position est au-delà de la fin du fichier, on ajoute des espaces
-            if (parameters.Position > existingContent.Length)
-            {
-                existingContent = existingContent.PadRight(parameters.Position);
-            }
-
-            // Insérer le nouveau contenu à la position spécifiée
-            var newContent = existingContent.Insert(parameters.Position, parameters.Content);
-            await File.WriteAllTextAsync(validPath, newContent);
+            // Pour toute autre position, insérer ou remplacer une partie
+            newContent = existingContent.Substring(0, parameters.Position) +
+                         parameters.Content +
+                         existingContent.Substring(parameters.Position);
         }
+
+        await File.WriteAllTextAsync(validPath, newContent);
 
         return $"Successfully wrote content at position {parameters.Position} in {parameters.Path}";
     }
+
+
+
 
     public Task<CallToolResult> TestHandleAsync(
         WriteFileAtPositionParameters parameters,

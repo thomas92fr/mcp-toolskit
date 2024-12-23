@@ -1,4 +1,5 @@
 ﻿using mcp_toolskit.Handlers;
+using mcp_toolskit.Handlers.DotNet;
 using mcp_toolskit.Handlers.Filesystem;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,36 +81,38 @@ namespace mcp_toolskit
                     services.AddSingleton(appConfig);
                 })
                 .ConfigureTools(tools => {
-                    if (appConfig.AllowedTools.Contains("ListAllowedDirectories"))
+                    if (appConfig.ValidateTool("ListAllowedDirectories"))
                         tools.AddHandler<ListAllowedDirectoriesToolHandler>();
-                    if (appConfig.AllowedTools.Contains("ReadFile"))
+                    if (appConfig.ValidateTool("ReadFile"))
                         tools.AddHandler<ReadFileToolHandler>();
-                    if (appConfig.AllowedTools.Contains("ReadMultipleFiles"))
+                    if (appConfig.ValidateTool("ReadMultipleFiles"))
                         tools.AddHandler<ReadMultipleFilesToolHandler>();
-                    if (appConfig.AllowedTools.Contains("WriteFile"))
+                    if (appConfig.ValidateTool("WriteFile"))
                         tools.AddHandler<WriteFileToolHandler>();
-                    if (appConfig.AllowedTools.Contains("WriteFileAtPosition"))
+                    if (appConfig.ValidateTool("WriteFileAtPosition"))
                         tools.AddHandler<WriteFileAtPositionToolHandler>();
-                    if (appConfig.AllowedTools.Contains("CreateDirectory"))
+                    if (appConfig.ValidateTool("CreateDirectory"))
                         tools.AddHandler<CreateDirectoryToolHandler>();
-                    if (appConfig.AllowedTools.Contains("ListDirectory"))
+                    if (appConfig.ValidateTool("ListDirectory"))
                         tools.AddHandler<ListDirectoryToolHandler>();
-                    if (appConfig.AllowedTools.Contains("MoveFile"))
+                    if (appConfig.ValidateTool("MoveFile"))
                         tools.AddHandler<MoveFileToolHandler>();
-                    if (appConfig.AllowedTools.Contains("SearchFiles"))
+                    if (appConfig.ValidateTool("SearchFiles"))
                         tools.AddHandler<SearchFilesToolHandler>();
-                    if (appConfig.AllowedTools.Contains("SearchPositionInFileWithRegex"))
+                    if (appConfig.ValidateTool("SearchPositionInFileWithRegex"))
                         tools.AddHandler<SearchPositionInFileWithRegexToolHandler>();
-                    if (appConfig.AllowedTools.Contains("GetFileInfo"))
+                    if (appConfig.ValidateTool("GetFileInfo"))
                         tools.AddHandler<GetFileInfoToolHandler>();
-                    if (appConfig.AllowedTools.Contains("DeleteAtPosition"))
+                    if (appConfig.ValidateTool("DeleteAtPosition"))
                         tools.AddHandler<DeleteAtPositionToolHandler>();
-                    if (appConfig.AllowedTools.Contains("SearchAndReplace"))
+                    if (appConfig.ValidateTool("SearchAndReplace"))
                         tools.AddHandler<SearchAndReplaceToolHandler>();
-                    if (appConfig.AllowedTools.Contains("DeleteFile"))
+                    if (appConfig.ValidateTool("DeleteFile"))
                         tools.AddHandler<DeleteFileToolHandler>();
+                    if (appConfig.ValidateTool("DotNet"))
+                        tools.AddHandler<DotNetToolHandler>();
 
-                    if (appConfig.AllowedTools.Contains("Calculator"))
+                    if (appConfig.ValidateTool("Calculator"))
                         tools.AddHandler<CalculatorToolHandler>();
 
 

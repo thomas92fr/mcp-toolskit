@@ -19,9 +19,9 @@ namespace mcp_toolskit.Models
         public string[] AllowedDirectories { get; set; } = Array.Empty<string>();
 
         /// <summary>
-        /// Liste des outils autorisés.
+        /// Liste des outils interdits.
         /// </summary>
-        public string[] AllowedTools { get; set; } = Array.Empty<string>();
+        public string[] ForbiddenTools { get; set; } = Array.Empty<string>();
 
         /// <summary>
         /// Crée une nouvelle instance de la configuration avec les valeurs par défaut.
@@ -138,6 +138,19 @@ namespace mcp_toolskit.Models
                 throw new UnauthorizedAccessException($"Access denied - path outside allowed directories: {fullPath}");
             }
             return fullPath;
+        }
+
+        /// <summary>
+        /// Valide qu'un nom d'outils est autorisé
+        /// </summary>
+        public virtual bool ValidateTool(string tool_name)
+        {
+           
+            if (ForbiddenTools.Any(tool => tool?.ToLower() == tool_name?.ToLower()))
+            {
+                return false;
+            }
+            return true;
         }
     }
 }

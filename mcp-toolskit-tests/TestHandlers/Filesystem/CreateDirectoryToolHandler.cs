@@ -52,6 +52,7 @@ namespace mcp_toolskit_tests.TestHandlers.Filesystem
         [Theory]
         [InlineData("testDir1")]
         [InlineData("path/to/nested/directory")]
+        [InlineData("path\\to\\nested\\directory2")]
         [InlineData("directory with spaces")]
         public async Task CreateDirectory_ShouldCreateDirectory(string directoryPath)
         {

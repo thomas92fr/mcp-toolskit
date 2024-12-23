@@ -2,23 +2,10 @@
   "_LogPath": "Emplacement des fichiers des logs (1 fichier par jour, sur 7 jours roulants)",
   "LogPath": "./",
 
-  "_AllowedTools": "Liste des outils autorisés",
-  "AllowedTools": [
-    "Calculator",
-    "ListAllowedDirectories",
-    "ReadFile",
-    "ReadMultipleFiles",
-    "WriteFile",
-    "WriteFileAtPosition----",
-    "CreateDirectory",
-    "ListDirectory",
-    "MoveFile",
-    "SearchFiles",
-    "SearchPositionInFileWithRegex",
-    "GetFileInfo",
-    "DeleteAtPosition",
-    "SearchAndReplace",
-    "DeleteFile"
+  "_ForbiddenTools": "Liste des outils interdits.",
+  "ForbiddenTools": [
+    "WriteFileAtPosition",
+    "SearchAndReplace"
   ],
 
   "_AllowedDirectories": "Liste des répertoires autorisés pour les opérations sur le système de fichiers.",
