@@ -4,7 +4,6 @@
 
   "_ForbiddenTools": "Liste des outils interdits.",
   "ForbiddenTools": [
-    "WriteFileAtPosition",
     "SearchAndReplace"
   ],
 
