@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 
 namespace mcp_toolskit_tests.TestHandlers.DotNet
 {
+    [Collection("DotNet")]  // Désactive la parallélisation
     public class TestDotNetToolHandler
     {
         private readonly Mock<IServerContext> _mockServerContext;
@@ -16,7 +17,7 @@ namespace mcp_toolskit_tests.TestHandlers.DotNet
         private readonly Mock<ILogger<DotNetToolHandler>> _mockLogger;
         private readonly TestAppConfig _appConfig;
         private readonly DotNetToolHandler _handler;
-        private readonly string _testBasePath = Path.Combine(Path.GetTempPath(), "mcp-toolskit-tests", "dotnet");
+        private readonly string _testBasePath;
 
         public class TestAppConfig : AppConfig
         {
@@ -29,6 +30,8 @@ namespace mcp_toolskit_tests.TestHandlers.DotNet
 
         public TestDotNetToolHandler()
         {
+            _testBasePath = Path.Combine(Path.GetTempPath(), "mcp-toolskit-tests", Guid.NewGuid().ToString().Replace("-", ""));
+
             // Arrange - Setup mocks
             _mockServerContext = new Mock<IServerContext>();
             _mockSessionContext = new Mock<ISessionContext>();

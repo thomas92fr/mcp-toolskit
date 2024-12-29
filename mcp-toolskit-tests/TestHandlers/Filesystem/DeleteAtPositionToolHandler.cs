@@ -8,6 +8,7 @@ using Moq;
 
 namespace mcp_toolskit_tests.TestHandlers.Filesystem
 {
+    [Collection("FileSystem")]  // Désactive la parallélisation
     public class TestDeleteAtPositionToolHandler : IDisposable
     {
         private readonly Mock<IServerContext> _mockServerContext;
@@ -15,11 +16,13 @@ namespace mcp_toolskit_tests.TestHandlers.Filesystem
         private readonly Mock<ILogger<DeleteAtPositionToolHandler>> _mockLogger;
         private readonly AppConfig _appConfig;
         private readonly DeleteAtPositionToolHandler _handler;
-        private readonly string _testBasePath = Path.Combine(Path.GetTempPath(), "mcp-toolskit-tests");
+        private readonly string _testBasePath;
         private readonly string _testFilePath;
 
         public TestDeleteAtPositionToolHandler()
         {
+            _testBasePath = Path.Combine(Path.GetTempPath(), "mcp-toolskit-tests", Guid.NewGuid().ToString().Replace("-", ""));
+
             // Arrange - Setup mocks
             _mockServerContext = new Mock<IServerContext>();
             _mockSessionContext = new Mock<ISessionContext>();

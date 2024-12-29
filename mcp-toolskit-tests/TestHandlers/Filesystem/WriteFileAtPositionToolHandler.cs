@@ -9,6 +9,7 @@ using Moq;
 
 namespace mcp_toolskit_tests.TestHandlers.Filesystem
 {
+    [Collection("FileSystem")]  // Désactive la parallélisation
     public class TestWriteFileAtPositionToolHandler : IDisposable
     {
         private readonly Mock<IServerContext> _mockServerContext;
@@ -111,7 +112,7 @@ namespace mcp_toolskit_tests.TestHandlers.Filesystem
 
         public async Task WriteFileAtPosition_ShouldWriteContentCorrectly(string filename, string content, int position, string initialContent, string expectedFinalContent)
         {
-            await Task.Delay(100);  
+            //await Task.Delay(150);  
             
             // Arrange
             var filePath = GetTestPath(filename);
