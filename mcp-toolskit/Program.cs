@@ -82,9 +82,7 @@ namespace mcp_toolskit
                 })
                 .ConfigureTools(tools => {
                     if (appConfig.ValidateTool("ListAllowedDirectories"))
-                        tools.AddHandler<ListAllowedDirectoriesToolHandler>();
-                    if (appConfig.ValidateTool("ReadFile"))
-                        tools.AddHandler<ReadFileToolHandler>();
+                        tools.AddHandler<ListAllowedDirectoriesToolHandler>();                  
                     if (appConfig.ValidateTool("ReadMultipleFiles"))
                         tools.AddHandler<ReadMultipleFilesToolHandler>();
                     if (appConfig.ValidateTool("WriteFile"))
