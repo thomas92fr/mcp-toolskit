@@ -7,7 +7,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Server.Features.Tools;
 using Moq;
 
-namespace mcp_toolskit_tests.TestHandlers
+namespace mcp_toolskit_tests.TestHandlers.Calculator
 {
 
     public class TestCalculatorToolHandler
