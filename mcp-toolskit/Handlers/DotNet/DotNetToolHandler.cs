@@ -27,7 +27,6 @@ public enum DotNetOperation
 public class DotNetParameters
 {
     public required DotNetOperation Operation { get; init; }
-
     public required string SolutionFile { get; init; }
 
     public override string ToString()
@@ -95,12 +94,6 @@ public class DotNetToolHandler : ToolHandlerBase<DotNetParameters>
         if (string.IsNullOrEmpty(parameters.SolutionFile))
             throw new ArgumentException("SolutionFile is required for RunTests operation");
 
-        // Ajout des logs de débogage pour vérifier la configuration
-        foreach(var env in Environment.GetEnvironmentVariables().Cast<DictionaryEntry>())
-        {
-            _logger.LogDebug("Environment variable: {Key} = {Value}", env.Key, env.Value);
-        }
-        
         _logger.LogInformation("AllowedDirectories: {Directories}", string.Join(", ", _appConfig.AllowedDirectories));
         _logger.LogInformation("Checking path: {Path}", Path.GetDirectoryName(parameters.SolutionFile));
 
@@ -108,28 +101,28 @@ public class DotNetToolHandler : ToolHandlerBase<DotNetParameters>
         if (!Directory.Exists(solutionDir))
             throw new DirectoryNotFoundException($"Solution directory not found: {solutionDir}");
 
-        // Ensure we have the full path to the solution file
         var solutionPath = parameters.SolutionFile;
         if (!File.Exists(solutionPath))
             throw new FileNotFoundException($"Solution file not found: {solutionPath}");
 
         _logger.LogInformation("Running tests for solution: {SolutionPath}", solutionPath);
 
+        var testResultsDir = Path.Combine(solutionDir, "TestResults");
+        Directory.CreateDirectory(testResultsDir);
+
         var processStartInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"test \"{solutionPath}\" --no-restore --logger \"trx;LogFileName=TestResults.trx\"",
+            Arguments = $"test \"{solutionPath}\" --no-restore " +
+                       $"--logger \"console;verbosity=detailed\" " +
+                       $"--logger \"html;logfilename=TestResults.html\" " +
+                       $"--results-directory \"{testResultsDir}\"",
             WorkingDirectory = solutionDir,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
-
-        _logger.LogInformation("Starting process with: FileName = {FileName}, Arguments = {Arguments}, WorkingDirectory = {WorkingDirectory}",
-            processStartInfo.FileName,
-            processStartInfo.Arguments,
-            processStartInfo.WorkingDirectory);
 
         using var process = new Process { StartInfo = processStartInfo };
         var output = new StringBuilder();
@@ -147,8 +140,7 @@ public class DotNetToolHandler : ToolHandlerBase<DotNetParameters>
         {
             if (e.Data != null)
             {
-                var errorMessage = $"ERROR: {e.Data}";
-                output.AppendLine(errorMessage);
+                output.AppendLine($"ERROR: {e.Data}");
                 _logger.LogError("Process error: {Error}", e.Data);
             }
         };
@@ -161,6 +153,10 @@ public class DotNetToolHandler : ToolHandlerBase<DotNetParameters>
         var exitCode = process.ExitCode;
         _logger.LogInformation("Process completed with exit code: {ExitCode}", exitCode);
 
+        // Ajouter le chemin du rapport HTML à la sortie
+        output.AppendLine();
+        output.AppendLine($"Test results HTML report: {Path.Combine(testResultsDir, "TestResults.html")}");
+        
         return output.ToString();
     }
 }
