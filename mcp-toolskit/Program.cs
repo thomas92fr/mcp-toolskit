@@ -11,6 +11,7 @@ using Polly.Extensions.Http;
 using Polly;
 using Serilog;
 using mcp_toolskit.Handlers.BraveSearch.Helpers;
+using mcp_toolskit.Handlers.Git;
 
 namespace mcp_toolskit
 {
@@ -146,6 +147,13 @@ namespace mcp_toolskit
 
                     if (appConfig.ValidateTool("BraveLocalSearch"))
                         tools.AddHandler<BraveLocalSearchToolHandler>();
+
+                    if (appConfig.ValidateTool("GitCommit"))
+                        tools.AddHandler<GitCommitToolHandler>();
+                    if (appConfig.ValidateTool("GitFetch"))
+                        tools.AddHandler<GitFetchToolHandler>();
+                    if (appConfig.ValidateTool("GitPull"))
+                        tools.AddHandler<GitPullToolHandler>();
 
 
                 })

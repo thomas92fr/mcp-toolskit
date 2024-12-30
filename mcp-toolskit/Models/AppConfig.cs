@@ -3,6 +3,30 @@ using System.Text.Json;
 
 namespace mcp_toolskit.Models
 {
+    /// <summary>
+    /// Configuration spécifique pour GIT 
+    /// </summary>
+    public class GitConfig
+    {
+        /// <summary>
+        /// Nom de l'utilisateur , utilisé pour les oérations GIT
+        /// </summary>
+        public string UserName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Email de l'utilisateur , utilisé pour les oérations GIT
+        /// </summary>
+        public string UserEmail { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Mot de passe de l'utilisateur , utilisé pour les oérations GIT (en remote)
+        /// </summary>
+        public string UserPassword { get; set; } = string.Empty;
+
+    }
+    /// <summary>
+    /// Configuration spécifique pour BraveSearch API
+    /// </summary>
     public class BraveSearchConfig
     {
         /// <summary>
@@ -39,6 +63,11 @@ namespace mcp_toolskit.Models
         /// Configuration spécifique pour BraveSearch API
         /// </summary>
         public BraveSearchConfig BraveSearch { get; set; } = new BraveSearchConfig();
+
+        /// <summary>
+        /// Configuration spécifique pour GIT
+        /// </summary>
+        public GitConfig Git { get; set; } = new GitConfig();
 
         /// <summary>
         /// Crée une nouvelle instance de la configuration avec les valeurs par défaut.

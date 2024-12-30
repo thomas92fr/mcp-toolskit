@@ -14,7 +14,18 @@
   ],
   "_BraveSearch": "Configuration spécifique pour BraveSearch API",
   "BraveSearch": {
+    "_ApiKey": "Token a utiliser pour les appels a l'API BraveSearch",
     "ApiKey": "",
-    "IgnoreSSLErrors":  false
+    "_IgnoreSSLErrors": "Indique si on ignore ou non les erreurs SSL lors des appels a l'API BraveSearch",
+    "IgnoreSSLErrors": false
+  },
+  "_Git": "Configuration spécifique pour GIT",
+  "Git": {
+    "_UserName": "Nom de l'utilisateur , utilisé pour les oérations GIT",
+    "UserName": "",
+    "_UserEmail": "Email de l'utilisateur , utilisé pour les oérations GIT",
+    "UserEmail": "",
+    "_UserPassword": "Mot de passe de l'utilisateur , utilisé pour les oérations GIT (en remote)",
+    "UserPassword": ""
   }
 }
