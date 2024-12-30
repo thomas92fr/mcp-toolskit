@@ -11,6 +11,10 @@
   "AllowedDirectories": [
     "C:\\Users\\Public\\Documents",
     "I:\\"
-  ]
-
+  ],
+  "_BraveSearch": "Configuration spécifique pour BraveSearch API",
+  "BraveSearch": {
+    "ApiKey": "",
+    "IgnoreSSLErrors":  false
+  }
 }

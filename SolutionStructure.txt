@@ -6,6 +6,15 @@ mcp-toolskit
     Extentions
         EnumExtensions.cs
     Handlers
+        BraveSearch
+            Helpers
+                BraveSearchRateLimiter.cs
+                RateLimiter.cs
+                RetryHandler.cs
+            Models
+                BraveSearchModels.cs
+            BraveLocalSearchToolHandler.cs
+            BraveWebSearchToolHandler.cs
         Calculator
             CalculatorToolHandler.cs
         DotNet
@@ -18,7 +27,6 @@ mcp-toolskit
             ListAllowedDirectoriesToolHandler.cs
             ListDirectoryToolHandler.cs
             MoveFileToolHandler.cs
-            ReadFileToolHandler.cs
             ReadMultipleFilesToolHandler.cs
             SearchAndReplaceToolHandler.cs
             SearchFilesToolHandler.cs
@@ -38,16 +46,20 @@ mcp-toolskit
     Program.cs
 mcp-toolskit-tests
     TestHandlers
+        Calculator
+            TestCalculatorToolHandler.cs
         DotNet
             DotNetToolHandlerTests.cs
         Filesystem
             CreateDirectoryToolHandler.cs
             DeleteAtPositionToolHandler.cs
+            MoveFileToolHandler.cs
+            ReadMultipleFilesToolHandler.cs
+            SearchPositionInFileWithRegexToolHandler.cs
             WriteFileAtPositionToolHandler.cs
-        TestCalculatorToolHandler.cs
-    TestResults
-        TestResults.trx
     mcp-toolskit-tests.csproj
+TestResults
+    TestResults.html
 .gitignore
 ExtractSolution.cmd
 ExtractSolutionCode.ps1

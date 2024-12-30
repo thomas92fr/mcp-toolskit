@@ -1,12 +1,16 @@
 ﻿using mcp_toolskit.Handlers;
 using mcp_toolskit.Handlers.DotNet;
 using mcp_toolskit.Handlers.Filesystem;
+using mcp_toolskit.Handlers.BraveSearch;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Server.Builder;
+using Polly.Extensions.Http;
+using Polly;
 using Serilog;
+using mcp_toolskit.Handlers.BraveSearch.Helpers;
 
 namespace mcp_toolskit
 {
@@ -77,8 +81,32 @@ namespace mcp_toolskit
                         builder.SetMinimumLevel(LogLevel.Debug);
                     });
 
+                    // Add HttpClient with configuration
+                    var BraveSearchHttpClient = services.AddHttpClient("BraveSearch")
+                        .ConfigureHttpClient(client =>
+                        {
+                            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+                            client.DefaultRequestHeaders.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("gzip"));
+                        })
+                        .SetHandlerLifetime(TimeSpan.FromMinutes(5));  // Définir la durée de vie du handler                       
+                        
+                    if(appConfig.BraveSearch.IgnoreSSLErrors)
+                    {
+                        BraveSearchHttpClient.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+                        {
+                            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+                        });
+                    }
+
+                    BraveSearchHttpClient.AddPolicyHandler(GetRetryPolicy());  // Optionnel : Ajouter une politique de retry
+                    BraveSearchHttpClient.AddHttpMessageHandler<RetryHandler>();  
+
+
+
                     // Add configuration to DI
                     services.AddSingleton(appConfig);
+
+                    services.AddTransient<RetryHandler>();
                 })
                 .ConfigureTools(tools => {
                     if (appConfig.ValidateTool("ListAllowedDirectories"))
@@ -113,6 +141,12 @@ namespace mcp_toolskit
                     if (appConfig.ValidateTool("Calculator"))
                         tools.AddHandler<CalculatorToolHandler>();
 
+                    if (appConfig.ValidateTool("BraveWebSearch"))
+                        tools.AddHandler<BraveWebSearchToolHandler>();
+
+                    if (appConfig.ValidateTool("BraveLocalSearch"))
+                        tools.AddHandler<BraveLocalSearchToolHandler>();
+
 
                 })
                 .Build();
@@ -131,6 +165,13 @@ namespace mcp_toolskit
                 await server.DisposeAsync();
                 Log.CloseAndFlush(); // Important: flush any remaining logs
             }
+        }
+        private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+        {
+            return HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .WaitAndRetryAsync(3, retryAttempt =>
+                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
         }
     }
 }

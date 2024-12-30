@@ -3,6 +3,18 @@ using System.Text.Json;
 
 namespace mcp_toolskit.Models
 {
+    public class BraveSearchConfig
+    {
+        /// <summary>
+        /// Token a utiliser pour les appels a l'API BraveSearch
+        /// </summary>
+         public string ApiKey { get; set; } = string.Empty;
+        /// <summary>
+        /// Indique si on ignore ou non les erreurs SSL lors des appels a l'API BraveSearch
+        /// </summary>
+        public bool IgnoreSSLErrors { get; set; } = false;
+    }
+
     /// <summary>
     /// Classe de configuration de l'application.
     /// </summary>
@@ -22,6 +34,11 @@ namespace mcp_toolskit.Models
         /// Liste des outils interdits.
         /// </summary>
         public string[] ForbiddenTools { get; set; } = Array.Empty<string>();
+
+        /// <summary>
+        /// Configuration spécifique pour BraveSearch API
+        /// </summary>
+        public BraveSearchConfig BraveSearch { get; set; } = new BraveSearchConfig();
 
         /// <summary>
         /// Crée une nouvelle instance de la configuration avec les valeurs par défaut.
