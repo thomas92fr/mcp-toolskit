@@ -144,7 +144,6 @@ namespace mcp_toolskit
 
                     if (appConfig.ValidateTool("BraveWebSearch"))
                         tools.AddHandler<BraveWebSearchToolHandler>();
-
                     if (appConfig.ValidateTool("BraveLocalSearch"))
                         tools.AddHandler<BraveLocalSearchToolHandler>();
 
@@ -154,8 +153,19 @@ namespace mcp_toolskit
                         tools.AddHandler<GitFetchToolHandler>();
                     if (appConfig.ValidateTool("GitPull"))
                         tools.AddHandler<GitPullToolHandler>();
-
-
+                    if (appConfig.ValidateTool("GitPush"))
+                        tools.AddHandler<GitPushToolHandler>();
+                    if (appConfig.ValidateTool("GitBranches"))
+                        tools.AddHandler<GitBranchesToolHandler>();
+                    if (appConfig.ValidateTool("GitCreateBranch"))
+                        tools.AddHandler<GitCreateBranchToolHandler>();
+                    if (appConfig.ValidateTool("GitCheckout"))
+                        tools.AddHandler<GitCheckoutToolHandler>();
+                    if (appConfig.ValidateTool("GitDeleteBranch"))
+                        tools.AddHandler<GitDeleteBranchToolHandler>();
+                    if (appConfig.ValidateTool("GitConflicts"))
+                        tools.AddHandler<GitConflictsToolHandler>();
+                    
                 })
                 .Build();
 

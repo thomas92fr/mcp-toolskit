@@ -33,6 +33,14 @@ mcp-toolskit
             SearchPositionInFileWithRegexToolHandler.cs
             WriteFileAtPositionToolHandler.cs
             WriteFileToolHandler.cs
+        Git
+            GitBranchesToolHandler.cs
+            GitCheckoutToolHandler.cs
+            GitCommitToolHandler.cs
+            GitDeleteBranchToolHandler.cs
+            GitFetchToolHandler.cs
+            GitPullToolHandler.cs
+            GitPushToolHandler.cs
     Helpers
     Models
         AppConfig.cs

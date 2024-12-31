@@ -2522,12 +2522,878 @@ public class WriteFileToolHandler : ToolHandlerBase&lt;WriteFileParameters&gt;
 </file>
 
 
+<file path="mcp-toolskit\Handlers\Git\GitBranchesToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitBranchesOperation&gt;))]
+public enum GitBranchesOperation
+{
+    [Description(&quot;Lists all branches in a repository&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;,
+        &quot;IncludeRemote: Include remote branches (default: true)&quot;
+    )]
+    ListBranches
+}
+public class GitBranchesParameters
+{
+    public required GitBranchesOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public bool IncludeRemote { get; init; } = true;
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        sb.Append($&quot;, IncludeRemote: {IncludeRemote}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitBranchesParameters))]
+public partial class GitBranchesParametersJsonContext : JsonSerializerContext { }
+public class GitBranchesToolHandler : ToolHandlerBase&lt;GitBranchesParameters&gt;
+{
+    private readonly ILogger&lt;GitBranchesToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitBranchesToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitBranchesToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitBranches&quot;,
+        Description = typeof(GitBranchesOperation).GenerateFullDescription(),
+        InputSchema = GitBranchesParametersJsonContext.Default.GitBranchesParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitBranchesParametersJsonContext.Default.GitBranchesParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitBranchesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Git Branches Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitBranchesOperation.ListBranches =&gt; await ListBranchesAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git Branches operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; ListBranchesAsync(GitBranchesParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for ListBranches operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var branches = new StringBuilder();
+            branches.AppendLine(&quot;Branches in repository:&quot;);
+            branches.AppendLine(&quot;\nLocal branches:&quot;);
+            foreach (var branch in repo.Branches.Where(b =&gt; !b.IsRemote))
+            {
+                branches.AppendLine($&quot;- {branch.FriendlyName} ({branch.Tip?.Sha[..7] ?? &quot;No commits&quot;})&quot;);
+                if (branch.IsCurrentRepositoryHead)
+                {
+                    branches.AppendLine(&quot;  * Current HEAD&quot;);
+                }
+            }
+            if (parameters.IncludeRemote)
+            {
+                branches.AppendLine(&quot;\nRemote branches:&quot;);
+                foreach (var branch in repo.Branches.Where(b =&gt; b.IsRemote))
+                {
+                    branches.AppendLine($&quot;- {branch.FriendlyName} ({branch.Tip?.Sha[..7] ?? &quot;No commits&quot;})&quot;);
+                }
+            }
+            return Task.FromResult(branches.ToString());
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitBranchesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Git\GitCheckoutToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitCheckoutOperation&gt;))]
+public enum GitCheckoutOperation
+{
+    [Description(&quot;Switches to a specified branch&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;,
+        &quot;BranchName: Name of the branch to checkout&quot;
+    )]
+    Checkout
+}
+public class GitCheckoutParameters
+{
+    public required GitCheckoutOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public required string BranchName { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        if (BranchName != null) sb.Append($&quot;, BranchName: {BranchName}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitCheckoutParameters))]
+public partial class GitCheckoutParametersJsonContext : JsonSerializerContext { }
+public class GitCheckoutToolHandler : ToolHandlerBase&lt;GitCheckoutParameters&gt;
+{
+    private readonly ILogger&lt;GitCheckoutToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitCheckoutToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitCheckoutToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitCheckout&quot;,
+        Description = typeof(GitCheckoutOperation).GenerateFullDescription(),
+        InputSchema = GitCheckoutParametersJsonContext.Default.GitCheckoutParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitCheckoutParametersJsonContext.Default.GitCheckoutParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitCheckoutParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Git Checkout Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitCheckoutOperation.Checkout =&gt; await CheckoutBranchAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git Checkout operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; CheckoutBranchAsync(GitCheckoutParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for Checkout operation&quot;);
+        if (string.IsNullOrEmpty(parameters.BranchName))
+            throw new ArgumentException(&quot;Branch name is required for Checkout operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var branch = repo.Branches[parameters.BranchName]
+                ?? throw new ArgumentException($&quot;Branch &apos;{parameters.BranchName}&apos; not found&quot;);
+            var options = new CheckoutOptions
+            {
+                CheckoutModifiers = CheckoutModifiers.Force
+            };
+            Commands.Checkout(repo, branch, options);
+            return Task.FromResult($&quot;Successfully checked out branch &apos;{parameters.BranchName}&apos;&quot;);
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitCheckoutParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Git\GitCommitToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitCommitOperation&gt;))]
+public enum GitCommitOperation
+{
+    [Description(&quot;Creates a new commit with the specified message&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;,
+        &quot;Message: Commit message&quot;
+        )]
+    Commit
+}
+public class GitCommitParameters
+{
+    public required GitCommitOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public required string Message { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        if (Message != null) sb.Append($&quot;, Message: {Message}&quot;);     
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitCommitParameters))]
+public partial class GitCommitParametersJsonContext : JsonSerializerContext { }
+public class GitCommitToolHandler : ToolHandlerBase&lt;GitCommitParameters&gt;
+{
+    private readonly ILogger&lt;GitCommitToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitCommitToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitCommitToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitCommit&quot;,
+        Description = typeof(GitCommitOperation).GenerateFullDescription(),
+        InputSchema = GitCommitParametersJsonContext.Default.GitCommitParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitCommitParametersJsonContext.Default.GitCommitParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitCommitParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Git Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitCommitOperation.Commit =&gt; await CreateCommitAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; CreateCommitAsync(GitCommitParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for Commit operation&quot;);
+        if (string.IsNullOrEmpty(parameters.Message))
+            throw new ArgumentException(&quot;Commit message is required&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var signature = new Signature(_appConfig.Git.UserName, _appConfig.Git.UserEmail, DateTimeOffset.Now);
+            Commands.Stage(repo, &quot;*&quot;);
+            var commit = repo.Commit(parameters.Message, signature, signature);
+            return Task.FromResult($&quot;Successfully created commit {commit.Sha} with message: {parameters.Message}&quot;);
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitCommitParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Git\GitDeleteBranchToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitDeleteBranchOperation&gt;))]
+public enum GitDeleteBranchOperation
+{
+    [Description(&quot;Deletes a branch from the repository&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;,
+        &quot;BranchName: Name of the branch to delete&quot;
+    )]
+    Delete
+}
+public class GitDeleteBranchParameters
+{
+    public required GitDeleteBranchOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public required string BranchName { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        if (BranchName != null) sb.Append($&quot;, BranchName: {BranchName}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitDeleteBranchParameters))]
+public partial class GitDeleteBranchParametersJsonContext : JsonSerializerContext { }
+public class GitDeleteBranchToolHandler : ToolHandlerBase&lt;GitDeleteBranchParameters&gt;
+{
+    private readonly ILogger&lt;GitDeleteBranchToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitDeleteBranchToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitDeleteBranchToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitDeleteBranch&quot;,
+        Description = typeof(GitDeleteBranchOperation).GenerateFullDescription(),
+        InputSchema = GitDeleteBranchParametersJsonContext.Default.GitDeleteBranchParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitDeleteBranchParametersJsonContext.Default.GitDeleteBranchParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitDeleteBranchParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Git Delete Branch Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitDeleteBranchOperation.Delete =&gt; await DeleteBranchAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git Delete Branch operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; DeleteBranchAsync(GitDeleteBranchParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for Delete operation&quot;);
+        if (string.IsNullOrEmpty(parameters.BranchName))
+            throw new ArgumentException(&quot;Branch name is required for Delete operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var branch = repo.Branches[parameters.BranchName]
+                ?? throw new ArgumentException($&quot;Branch &apos;{parameters.BranchName}&apos; not found&quot;);
+            if (branch.IsCurrentRepositoryHead)
+                throw new InvalidOperationException(&quot;Cannot delete the current HEAD branch&quot;);
+            repo.Branches.Remove(branch);
+            return Task.FromResult($&quot;Successfully deleted branch &apos;{parameters.BranchName}&apos;&quot;);
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitDeleteBranchParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Git\GitFetchToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitFetchOperation&gt;))]
+public enum GitFetchOperation
+{
+    [Description(&quot;Fetches changes from a remote repository&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;,
+        &quot;RemoteName: Name of the remote (default: origin)&quot;
+    )]
+    Fetch
+}
+public class GitFetchParameters
+{
+    public required GitFetchOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public required string RemoteName { get; init; } = &quot;origin&quot;;
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        if (RemoteName != null) sb.Append($&quot;, RemoteName: {RemoteName}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitFetchParameters))]
+public partial class GitFetchParametersJsonContext : JsonSerializerContext { }
+public class GitFetchToolHandler : ToolHandlerBase&lt;GitFetchParameters&gt;
+{
+    private readonly ILogger&lt;GitFetchToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitFetchToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitFetchToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitFetch&quot;,
+        Description = typeof(GitFetchOperation).GenerateFullDescription(),
+        InputSchema = GitFetchParametersJsonContext.Default.GitFetchParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitFetchParametersJsonContext.Default.GitFetchParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitFetchParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Git Fetch Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitFetchOperation.Fetch =&gt; await FetchFromRemoteAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git Fetch operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; FetchFromRemoteAsync(GitFetchParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for Fetch operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var remote = repo.Network.Remotes[parameters.RemoteName]
+                ?? throw new ArgumentException($&quot;Remote &apos;{parameters.RemoteName}&apos; not found&quot;);
+            var options = new FetchOptions
+            {
+                CredentialsProvider = (_url, _user, _cred) =&gt;
+                    new UsernamePasswordCredentials
+                    {
+                        Username = _appConfig.Git.UserName,
+                        Password = _appConfig.Git.UserPassword
+                    }
+            };
+            var refSpecs = remote.FetchRefSpecs.Select(x =&gt; x.Specification).ToList();
+            Commands.Fetch(repo, remote.Name, refSpecs, options, &quot;Fetch executed via GitFetchToolHandler&quot;);
+            return Task.FromResult($&quot;Successfully fetched from remote &apos;{parameters.RemoteName}&apos;&quot;);
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitFetchParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Git\GitPullToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitPullOperation&gt;))]
+public enum GitPullOperation
+{
+    [Description(&quot;Pulls changes from a remote repository&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;,
+        &quot;RemoteName: Name of the remote (default: origin)&quot;,
+        &quot;BranchName: Name of the branch to pull (default: current branch)&quot;
+    )]
+    Pull
+}
+public class GitPullParameters
+{
+    public required GitPullOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public required string RemoteName { get; init; } = &quot;origin&quot;;
+    public string? BranchName { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        if (RemoteName != null) sb.Append($&quot;, RemoteName: {RemoteName}&quot;);
+        if (BranchName != null) sb.Append($&quot;, BranchName: {BranchName}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitPullParameters))]
+public partial class GitPullParametersJsonContext : JsonSerializerContext { }
+public class GitPullToolHandler : ToolHandlerBase&lt;GitPullParameters&gt;
+{
+    private readonly ILogger&lt;GitPullToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitPullToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitPullToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitPull&quot;,
+        Description = typeof(GitPullOperation).GenerateFullDescription(),
+        InputSchema = GitPullParametersJsonContext.Default.GitPullParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitPullParametersJsonContext.Default.GitPullParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitPullParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Git Pull Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitPullOperation.Pull =&gt; await PullFromRemoteAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git Pull operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; PullFromRemoteAsync(GitPullParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for Pull operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var remote = repo.Network.Remotes[parameters.RemoteName]
+                ?? throw new ArgumentException($&quot;Remote &apos;{parameters.RemoteName}&apos; not found&quot;);
+            var branch = parameters.BranchName != null
+                ? repo.Branches[parameters.BranchName]
+                : repo.Head;
+            if (branch == null)
+                throw new ArgumentException(&quot;Specified branch not found&quot;);
+            var options = new PullOptions
+            {
+                FetchOptions = new FetchOptions
+                {
+                    CredentialsProvider = (_url, _user, _cred) =&gt;
+                        new UsernamePasswordCredentials
+                        {
+                            Username = _appConfig.Git.UserName,
+                            Password = _appConfig.Git.UserPassword
+                        }
+                },
+                MergeOptions = new MergeOptions
+                {
+                    FastForwardStrategy = FastForwardStrategy.Default
+                }
+            };
+            Commands.Pull(
+                repo,
+                new Signature(_appConfig.Git.UserName, _appConfig.Git.UserEmail, DateTimeOffset.Now),
+                options
+            );
+            return Task.FromResult($&quot;Successfully pulled from remote &apos;{parameters.RemoteName}&apos; for branch &apos;{branch.FriendlyName}&apos;&quot;);
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitPullParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Git\GitPushToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitPushOperation&gt;))]
+public enum GitPushOperation
+{
+    [Description(&quot;Pushes changes to a remote repository&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;,
+        &quot;RemoteName: Name of the remote (default: origin)&quot;,
+        &quot;BranchName: Name of the branch to push (default: current branch)&quot;
+    )]
+    Push
+}
+public class GitPushParameters
+{
+    public required GitPushOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public required string RemoteName { get; init; } = &quot;origin&quot;;
+    public string? BranchName { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        if (RemoteName != null) sb.Append($&quot;, RemoteName: {RemoteName}&quot;);
+        if (BranchName != null) sb.Append($&quot;, BranchName: {BranchName}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitPushParameters))]
+public partial class GitPushParametersJsonContext : JsonSerializerContext { }
+public class GitPushToolHandler : ToolHandlerBase&lt;GitPushParameters&gt;
+{
+    private readonly ILogger&lt;GitPushToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitPushToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitPushToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitPush&quot;,
+        Description = typeof(GitPushOperation).GenerateFullDescription(),
+        InputSchema = GitPushParametersJsonContext.Default.GitPushParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitPushParametersJsonContext.Default.GitPushParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitPushParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _logger.LogInformation(&quot;Git Push Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitPushOperation.Push =&gt; await PushToRemoteAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git Push operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; PushToRemoteAsync(GitPushParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for Push operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var remote = repo.Network.Remotes[parameters.RemoteName]
+                ?? throw new ArgumentException($&quot;Remote &apos;{parameters.RemoteName}&apos; not found&quot;);
+            var branch = parameters.BranchName != null
+                ? repo.Branches[parameters.BranchName]
+                : repo.Head;
+            if (branch == null)
+                throw new ArgumentException($&quot;Branch &apos;{parameters.BranchName ?? &quot;HEAD&quot;}&apos; not found&quot;);
+            var options = new PushOptions
+            {
+                CredentialsProvider = (_url, _user, _cred) =&gt;
+                    new UsernamePasswordCredentials
+                    {
+                        Username = _appConfig.Git.UserName,
+                        Password = _appConfig.Git.UserPassword
+                    }
+            };
+            repo.Network.Push(remote, branch.CanonicalName, options);
+            return Task.FromResult($&quot;Successfully pushed &apos;{branch.FriendlyName}&apos; to remote &apos;{parameters.RemoteName}&apos;&quot;);
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitPushParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
 <file path="mcp-toolskit\Models\AppConfig.cs">
 
 using System;
 using System.Text.Json;
 namespace mcp_toolskit.Models
 {
+    public class GitConfig
+    {
+        public string UserName { get; set; } = string.Empty;
+        public string UserEmail { get; set; } = string.Empty;
+        public string UserPassword { get; set; } = string.Empty;
+    }
     public class BraveSearchConfig
     {
          public string ApiKey { get; set; } = string.Empty;
@@ -2539,6 +3405,7 @@ namespace mcp_toolskit.Models
         public string[] AllowedDirectories { get; set; } = Array.Empty&lt;string&gt;();
         public string[] ForbiddenTools { get; set; } = Array.Empty&lt;string&gt;();
         public BraveSearchConfig BraveSearch { get; set; } = new BraveSearchConfig();
+        public GitConfig Git { get; set; } = new GitConfig();
         public AppConfig()
         {
             NormalizePathProperties();
@@ -2638,6 +3505,7 @@ using Polly.Extensions.Http;
 using Polly;
 using Serilog;
 using mcp_toolskit.Handlers.BraveSearch.Helpers;
+using mcp_toolskit.Handlers.Git;
 namespace mcp_toolskit
 {
     internal class Program
@@ -2732,6 +3600,20 @@ namespace mcp_toolskit
                         tools.AddHandler&lt;BraveWebSearchToolHandler&gt;();
                     if (appConfig.ValidateTool(&quot;BraveLocalSearch&quot;))
                         tools.AddHandler&lt;BraveLocalSearchToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;GitCommit&quot;))
+                        tools.AddHandler&lt;GitCommitToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;GitFetch&quot;))
+                        tools.AddHandler&lt;GitFetchToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;GitPull&quot;))
+                        tools.AddHandler&lt;GitPullToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;GitPush&quot;))
+                        tools.AddHandler&lt;GitPushToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;GitBranches&quot;))
+                        tools.AddHandler&lt;GitBranchesToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;GitCheckout&quot;))
+                        tools.AddHandler&lt;GitCheckoutToolHandler&gt;();
+                    if (appConfig.ValidateTool(&quot;GitDeleteBranch&quot;))
+                        tools.AddHandler&lt;GitDeleteBranchToolHandler&gt;();
                 })
                 .Build();
             try
