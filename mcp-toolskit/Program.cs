@@ -66,7 +66,7 @@ namespace mcp_toolskit
                 .MinimumLevel.Debug()
                 .CreateLogger();
 
-            Log.Logger = seriLogger;
+            Log.Logger = seriLogger; //main
 
             // Configure and build server
             var server = new McpServerBuilder(serverInfo)
