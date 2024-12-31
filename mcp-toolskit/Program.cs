@@ -163,6 +163,9 @@ namespace mcp_toolskit
                         tools.AddHandler<GitCheckoutToolHandler>();
                     if (appConfig.ValidateTool("GitDeleteBranch"))
                         tools.AddHandler<GitDeleteBranchToolHandler>();
+                    if (appConfig.ValidateTool("GitMerge"))
+                        tools.AddHandler<GitMergeToolHandler>();
+                    
                     if (appConfig.ValidateTool("GitConflicts"))
                         tools.AddHandler<GitConflictsToolHandler>();
                     
