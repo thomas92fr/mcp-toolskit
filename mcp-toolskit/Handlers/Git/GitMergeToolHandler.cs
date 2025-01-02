@@ -16,44 +16,27 @@ using LibGit2Sharp;
 namespace mcp_toolskit.Handlers.Git;
 
 /// <summary>
-/// Stratégies de résolution des conflits disponibles
-/// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ConflictResolutionStrategy>))]
-public enum ConflictResolutionStrategy
-{
-    /// <summary>Échoue en cas de conflits</summary>
-    [Description("Fails when conflicts are detected")]
-    Fail,
-    
-    /// <summary>Utilise les changements de la branche courante</summary>
-    [Description("Keep changes from the current branch")]
-    UseOurs,
-    
-    /// <summary>Utilise les changements de la branche à fusionner</summary>
-    [Description("Keep changes from the branch being merged")]
-    UseTheirs,
-    
-    /// <summary>Liste les conflits sans les résoudre</summary>
-    [Description("Only report conflicts without resolving them")]
-    ReportOnly
-}
-
-/// <summary>
 /// Définit les opérations disponibles pour le gestionnaire Git Merge.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter<GitMergeOperation>))]
 public enum GitMergeOperation
 {
     /// <summary>Fusionne une branche dans la branche courante</summary>
-    [Description("Merges specified branch into the current branch")]
+    [Description("Merges specified branch into the current branch, aborts merge on conflict")]
     [Parameters(
         "RepositoryPath: Path to the Git repository",
         "BranchName: Name of the branch to merge",
-        "CommitMessage: Optional commit message for the merge",
-        "ConflictStrategy: Strategy for handling merge conflicts (Fail|UseOurs|UseTheirs|ReportOnly)",
-        "AbortOnConflict: If true, aborts merge on conflict (default: true)"
+        "CommitMessage: Optional commit message for the merge"
     )]
-    Merge
+    MergeAbortOnConflict,
+    /// <summary>Fusionne une branche dans la branche courante</summary>
+    [Description("Merges specified branch into the current branch, Only report conflicts without resolving them")]
+    [Parameters(
+        "RepositoryPath: Path to the Git repository",
+        "BranchName: Name of the branch to merge",
+        "CommitMessage: Optional commit message for the merge"
+    )]
+    MergeReportOnly
 }
 
 /// <summary>
@@ -82,16 +65,6 @@ public class GitMergeParameters
     public required string? CommitMessage { get; init; }
 
     /// <summary>
-    /// Stratégie de résolution des conflits
-    /// </summary>
-    public required ConflictResolutionStrategy ConflictStrategy { get; init; } = ConflictResolutionStrategy.Fail;
-
-    /// <summary>
-    /// Si true, annule la fusion en cas de conflits
-    /// </summary>
-    public required bool AbortOnConflict { get; init; } = true;
-
-    /// <summary>
     /// Retourne une représentation textuelle des paramètres.
     /// </summary>
     public override string ToString()
@@ -100,8 +73,6 @@ public class GitMergeParameters
         if (RepositoryPath != null) sb.Append($", RepositoryPath: {RepositoryPath}");
         if (BranchName != null) sb.Append($", BranchName: {BranchName}");
         if (CommitMessage != null) sb.Append($", CommitMessage: {CommitMessage}");
-        sb.Append($", ConflictStrategy: {ConflictStrategy}");
-        sb.Append($", AbortOnConflict: {AbortOnConflict}");
         return sb.ToString();
     }
 }
@@ -142,9 +113,9 @@ public class GitMergeToolHandler : ToolHandlerBase<GitMergeParameters>
         GitMergeParametersJsonContext.Default.GitMergeParameters;
 
     protected override Task<CallToolResult> HandleAsync(
-        GitMergeParameters parameters,
-        CancellationToken cancellationToken = default
-    )
+    GitMergeParameters parameters,
+    CancellationToken cancellationToken = default
+)
     {
         _logger.LogInformation("Git Merge Query: {parameters}", parameters.ToString());
 
@@ -152,7 +123,8 @@ public class GitMergeToolHandler : ToolHandlerBase<GitMergeParameters>
         {
             string result = parameters.Operation switch
             {
-                GitMergeOperation.Merge => MergeBranch(parameters),
+                GitMergeOperation.MergeAbortOnConflict => MergeBranch(parameters, true),
+                GitMergeOperation.MergeReportOnly => MergeBranch(parameters, false),
                 _ => throw new ArgumentException($"Unknown operation: {parameters.Operation}")
             };
 
@@ -166,7 +138,7 @@ public class GitMergeToolHandler : ToolHandlerBase<GitMergeParameters>
         }
     }
 
-    private string MergeBranch(GitMergeParameters parameters)
+    private string MergeBranch(GitMergeParameters parameters, bool abortOnConflict)
     {
         if (string.IsNullOrEmpty(parameters.RepositoryPath))
             throw new ArgumentException("Repository path is required for Merge operation");
@@ -194,12 +166,7 @@ public class GitMergeToolHandler : ToolHandlerBase<GitMergeParameters>
                 var mergeOptions = new MergeOptions
                 {
                     FastForwardStrategy = FastForwardStrategy.Default,
-                    FileConflictStrategy = parameters.ConflictStrategy switch
-                    {
-                        ConflictResolutionStrategy.UseOurs => CheckoutFileConflictStrategy.Ours,
-                        ConflictResolutionStrategy.UseTheirs => CheckoutFileConflictStrategy.Theirs,
-                        _ => CheckoutFileConflictStrategy.Normal
-                    }
+                    FileConflictStrategy = CheckoutFileConflictStrategy.Normal
                 };
 
                 var mergeResult = repo.Merge(branchToMerge, signature, mergeOptions);
@@ -209,47 +176,63 @@ public class GitMergeToolHandler : ToolHandlerBase<GitMergeParameters>
                     var conflicts = repo.Index.Conflicts.ToList();
                     var conflictDetails = new StringBuilder();
                     conflictDetails.AppendLine($"Merge conflicts detected ({conflicts.Count} files):");
-                    
+
                     foreach (var conflict in conflicts)
                     {
-                        conflictDetails.AppendLine($"- {conflict.Ours.Path}:");
-                        if (conflict.Ancestor != null)
-                            conflictDetails.AppendLine($"  Base: {conflict.Ancestor.Id}");
-                        conflictDetails.AppendLine($"  Ours: {conflict.Ours.Id}");
-                        conflictDetails.AppendLine($"  Theirs: {conflict.Theirs.Id}");
+                        conflictDetails.AppendLine($"\nFile: {conflict.Ours.Path}");
+
+                        try
+                        {
+                            // On récupère les trees des branches
+                            var currentBranch = repo.Head;
+                            var targetBranch = repo.Branches[parameters.BranchName];
+
+                            var oursTree = currentBranch.Tip.Tree;
+                            var theirsTree = targetBranch.Tip.Tree;
+
+                            // Liste des fichiers à comparer
+                            var paths = new List<string> { conflict.Ours.Path };
+
+                            // Création du patch
+                            var patch = repo.Diff.Compare<Patch>(oursTree, theirsTree, paths);
+
+                            conflictDetails.AppendLine("Changes:");
+                            if (!string.IsNullOrEmpty(patch.Content))
+                            {
+                                var lines = patch.Content.Split('\n');
+                                foreach (var line in lines)
+                                {
+                                    if (line.StartsWith("+") && !line.StartsWith("+++"))
+                                        conflictDetails.AppendLine($"\u001b[32m{line}\u001b[0m"); // Vert pour les ajouts
+                                    else if (line.StartsWith("-") && !line.StartsWith("---"))
+                                        conflictDetails.AppendLine($"\u001b[31m{line}\u001b[0m"); // Rouge pour les suppressions
+                                    else
+                                        conflictDetails.AppendLine(line);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            conflictDetails.AppendLine($"Unable to compute detailed changes: {ex.Message}");
+                        }
+
+                        conflictDetails.AppendLine(new string('-', 80)); // Séparateur
                     }
 
-                    switch (parameters.ConflictStrategy)
-                    {
-                        case ConflictResolutionStrategy.Fail:
-                            if (parameters.AbortOnConflict)
-                            {
-                                repo.Reset(ResetMode.Hard);
-                                return $"Merge aborted due to conflicts:\n{conflictDetails}";
-                            }
-                            return $"Merge halted due to conflicts:\n{conflictDetails}";
+                    // On annule la fusion
+                    repo.Reset(ResetMode.Hard);
 
-                        case ConflictResolutionStrategy.ReportOnly:
-                            return conflictDetails.ToString();
+                    return abortOnConflict
+                        ? $"Merge aborted due to conflicts:\n{conflictDetails}"
+                        : $"Merge conflicts details:\n{conflictDetails}";
+                }
 
-                        case ConflictResolutionStrategy.UseOurs:
-                        case ConflictResolutionStrategy.UseTheirs:
-                            // Stage les fichiers résolus
-                            foreach (var conflict in conflicts)
-                            {
-                                repo.Index.Add(conflict.Ours.Path);
-                            }
-                            
-                            // Crée le commit de merge
-                            var commitMessage = parameters.CommitMessage ?? 
-                                $"Merge branch '{parameters.BranchName}' with {parameters.ConflictStrategy} conflict resolution";
-                            repo.Commit(commitMessage, signature, signature);
-                            
-                            return $"Merge completed with automatic conflict resolution ({parameters.ConflictStrategy}):\n{conflictDetails}";
-
-                        default:
-                            throw new ArgumentException($"Unsupported conflict strategy: {parameters.ConflictStrategy}");
-                    }
+                // Si pas de conflits, on peut créer le commit de merge
+                if (mergeResult.Status == MergeStatus.NonFastForward)
+                {
+                    var commitMessage = parameters.CommitMessage ??
+                        $"Merge branch '{parameters.BranchName}'";
+                    repo.Commit(commitMessage, signature, signature);
                 }
 
                 string message = mergeResult.Status switch
@@ -273,9 +256,25 @@ public class GitMergeToolHandler : ToolHandlerBase<GitMergeParameters>
                 {
                     _logger.LogError(resetEx, "Failed to reset repository after merge error");
                 }
-                
+
                 throw new Exception($"Merge failed: {ex.Message}", ex);
             }
+        }
+    }
+    // Méthodes utilitaires
+    private bool IsTextFile(string filePath)
+    {
+        // Extensions courantes de fichiers texte
+        var textExtensions = new[] { ".txt", ".cs", ".js", ".html", ".css", ".xml", ".json", ".md", ".yml", ".yaml", ".config", ".pas", ".dfm", ".dpr", ".dproj", ".sln" , ".csproj" };
+        return textExtensions.Any(ext => filePath.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string ReadBlobContent(Blob blob)
+    {
+        using (var contentStream = blob.GetContentStream())
+        using (var reader = new StreamReader(contentStream))
+        {
+            return reader.ReadToEnd();
         }
     }
 
