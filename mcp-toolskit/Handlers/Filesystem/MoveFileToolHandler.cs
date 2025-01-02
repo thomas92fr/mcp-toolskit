@@ -133,7 +133,10 @@ public class MoveFileToolHandler : ToolHandlerBase<MoveFileParameters>
 
         var validSourcePath = _appConfig.ValidatePath(parameters.Source);
         var validDestPath = _appConfig.ValidatePath(parameters.Destination);
-        
+       
+        _logger.LogInformation("Original file source: {validSourcePath}", validSourcePath);
+        _logger.LogInformation("file dest.: {validDestPath}", validDestPath);
+
         File.Move(validSourcePath, validDestPath);
         return Task.FromResult($"Successfully moved {parameters.Source} to {parameters.Destination}");
     }

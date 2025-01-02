@@ -149,6 +149,7 @@ public class DeleteAtPositionToolHandler : ToolHandlerBase<DeleteAtPositionParam
 
         // Read existing content
         var content = await File.ReadAllTextAsync(validPath);
+        _logger.LogInformation("Original file content:\n{content}", content);
 
         if (parameters.Position >= content.Length)
             throw new ArgumentException("Position is beyond end of file");

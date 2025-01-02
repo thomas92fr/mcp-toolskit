@@ -128,6 +128,10 @@ public class DeleteFileToolHandler : ToolHandlerBase<DeleteFileParameters>
         if (!File.Exists(validPath))
             throw new FileNotFoundException($"The file {validPath} does not exist.");
 
+        // Read existing content
+        var content = await File.ReadAllTextAsync(validPath);
+        _logger.LogInformation("Original file content:\n{content}", content);
+
         await Task.Run(() => File.Delete(validPath));
         return $"File {validPath} has been successfully deleted.";
     }

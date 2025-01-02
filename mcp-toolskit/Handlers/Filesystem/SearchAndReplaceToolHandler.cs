@@ -152,6 +152,7 @@ public class SearchAndReplaceToolHandler : ToolHandlerBase<SearchAndReplaceParam
 
         // Read existing content
         var content = await File.ReadAllTextAsync(validPath);
+        _logger.LogInformation("Original file content:\n{content}", content);
 
         var regex = new System.Text.RegularExpressions.Regex(parameters.Regex);
         var matches = regex.Matches(content);
@@ -182,6 +183,8 @@ public class SearchAndReplaceToolHandler : ToolHandlerBase<SearchAndReplaceParam
         }
 
         await File.WriteAllTextAsync(validPath, newContent);
+
+        _logger.LogInformation("New file content:\n{content}", newContent);
 
         return $"Successfully replaced {matches.Count} occurrences in {parameters.Path}";
     }

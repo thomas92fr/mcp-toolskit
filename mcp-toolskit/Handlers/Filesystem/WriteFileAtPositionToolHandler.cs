@@ -151,7 +151,8 @@ public class WriteFileAtPositionToolHandler : ToolHandlerBase<WriteFileAtPositio
         string existingContent = "";
         if (File.Exists(validPath))
         {
-            existingContent = await File.ReadAllTextAsync(validPath);
+            existingContent = await File.ReadAllTextAsync(validPath);                    
+            _logger.LogInformation("Original file content:\n{content}", existingContent);
         }
 
         string newContent;
@@ -186,6 +187,8 @@ public class WriteFileAtPositionToolHandler : ToolHandlerBase<WriteFileAtPositio
         }
 
         await File.WriteAllTextAsync(validPath, newContent);
+
+        _logger.LogInformation("New file content:\n{content}", newContent);
 
         return $"Successfully wrote content at position {parameters.Position} in {parameters.Path}";
     }
