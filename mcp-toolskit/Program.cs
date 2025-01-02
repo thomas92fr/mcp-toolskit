@@ -52,9 +52,11 @@ namespace mcp_toolskit
             string version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Version inconnue";
             var serverInfo = new Implementation { Name = "La boîte à outils de Toto", Version = version };
             var seriLogger = new LoggerConfiguration()
-                .WriteTo.File(Path.Combine(appConfig.LogPath,"Logs.txt"), 
+                .WriteTo.File(Path.Combine(appConfig.LogPath,"Logs.txt"),
+                              outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {#if ExecutionId}[{ExecutionId}] {#end}{Message:lj}{NewLine}{Exception}",
                               rollingInterval: RollingInterval.Day, 
                               retainedFileCountLimit: 7)
+                .Enrich.FromLogContext()
                 .MinimumLevel.Debug()
                 .CreateLogger();
 

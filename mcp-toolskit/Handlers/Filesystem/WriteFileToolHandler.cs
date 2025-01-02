@@ -7,6 +7,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -100,6 +101,8 @@ public class WriteFileToolHandler : ToolHandlerBase<WriteFileParameters>
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty("ExecutionId", Guid.NewGuid());
+
         _logger.LogInformation("Query: {parameters}", parameters.ToString());
 
         try
@@ -118,6 +121,8 @@ public class WriteFileToolHandler : ToolHandlerBase<WriteFileParameters>
             _logger.LogError(ex, "Error in filesystem operation");
             throw;
         }
+        
+        
     }
 
     private async Task<string> WriteFileAsync(WriteFileParameters parameters)

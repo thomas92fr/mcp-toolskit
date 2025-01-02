@@ -12,6 +12,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 
 namespace mcp_toolskit.Handlers.Git;
 
@@ -109,6 +110,7 @@ public class GitPushToolHandler : ToolHandlerBase<GitPushParameters>
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty("ExecutionId", Guid.NewGuid());
         _logger.LogInformation("Git Push Query: {parameters}", parameters.ToString());
 
         try

@@ -7,6 +7,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.Collections;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -69,6 +70,7 @@ public class DotNetToolHandler : ToolHandlerBase<DotNetParameters>
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty("ExecutionId", Guid.NewGuid());
         _logger.LogInformation("Running dotnet command: {parameters}", parameters.ToString());
 
         try

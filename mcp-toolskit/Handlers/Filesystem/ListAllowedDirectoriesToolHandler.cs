@@ -7,6 +7,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -83,6 +84,7 @@ public class ListAllowedDirectoriesToolHandler : ToolHandlerBase<ListAllowedDire
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty("ExecutionId", Guid.NewGuid());
         _logger.LogInformation("Query: {parameters}", parameters.ToString());
 
         try

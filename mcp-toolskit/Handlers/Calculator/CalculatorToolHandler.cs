@@ -9,6 +9,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 
 namespace mcp_toolskit.Handlers;
 
@@ -170,6 +171,7 @@ public class CalculatorToolHandler(
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty("ExecutionId", Guid.NewGuid());
         logger.LogInformation("Query: {parameters}", parameters.ToString());
 
         var result = parameters.Operation switch

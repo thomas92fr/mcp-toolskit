@@ -12,6 +12,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 
 namespace mcp_toolskit.Handlers.Git;
 
@@ -95,6 +96,7 @@ public class GitConflictsToolHandler : ToolHandlerBase<GitConflictsParameters>
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty("ExecutionId", Guid.NewGuid());
         _logger.LogInformation("Git Conflicts Query: {parameters}", parameters.ToString());
 
         try
