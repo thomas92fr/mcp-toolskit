@@ -31,6 +31,8 @@ namespace mcp_toolskit.Handlers
                 tools.AddHandler<MoveFileToolHandler>();
             if (appConfig.ValidateTool("SearchFiles"))
                 tools.AddHandler<SearchFilesToolHandler>();
+            if (appConfig.ValidateTool("SearchInFiles"))
+                tools.AddHandler<SearchInFilesToolHandler>();
             if (appConfig.ValidateTool("SearchPositionInFileWithRegex"))
                 tools.AddHandler<SearchPositionInFileWithRegexToolHandler>();
             if (appConfig.ValidateTool("GetFileInfo"))
@@ -41,6 +43,8 @@ namespace mcp_toolskit.Handlers
                 tools.AddHandler<SearchAndReplaceToolHandler>();
             if (appConfig.ValidateTool("DeleteFile"))
                 tools.AddHandler<DeleteFileToolHandler>();
+
+            
 
         }
 
