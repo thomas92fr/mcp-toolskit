@@ -1,17 +1,9 @@
-﻿using mcp_toolskit.Handlers;
-using mcp_toolskit.Handlers.DotNet;
-using mcp_toolskit.Handlers.Filesystem;
-using mcp_toolskit.Handlers.BraveSearch;
-using mcp_toolskit.Models;
+﻿using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Server.Builder;
-using Polly.Extensions.Http;
-using Polly;
 using Serilog;
-using mcp_toolskit.Handlers.BraveSearch.Helpers;
-using mcp_toolskit.Handlers.Git;
 
 namespace mcp_toolskit
 {
@@ -68,6 +60,9 @@ namespace mcp_toolskit
 
             Log.Logger = seriLogger; //main 2
 
+            // Récupération des modules (liste des tools)
+            var modules = GetModuleConfigurations();
+
             // Configure and build server
             var server = new McpServerBuilder(serverInfo)
                 .AddStdioTransport()
@@ -81,94 +76,24 @@ namespace mcp_toolskit
                         builder.AddSerilog(seriLogger, dispose: true);
                         builder.SetMinimumLevel(LogLevel.Debug);
                     });
-
-                    // Add HttpClient with configuration
-                    var BraveSearchHttpClient = services.AddHttpClient("BraveSearch")
-                        .ConfigureHttpClient(client =>
-                        {
-                            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-                            client.DefaultRequestHeaders.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("gzip"));
-                        })
-                        .SetHandlerLifetime(TimeSpan.FromMinutes(5));  // Définir la durée de vie du handler                       
-                        
-                    if(appConfig.BraveSearch.IgnoreSSLErrors)
+                  
+                    // Configuration des services pour chaque module
+                    foreach (var module in modules)
                     {
-                        BraveSearchHttpClient.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-                        {
-                            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
-                        });
+                        module.ConfigureServices(services, appConfig);
                     }
-
-                    BraveSearchHttpClient.AddPolicyHandler(GetRetryPolicy());  // Optionnel : Ajouter une politique de retry
-                    BraveSearchHttpClient.AddHttpMessageHandler<RetryHandler>();  
-
-
 
                     // Add configuration to DI
                     services.AddSingleton(appConfig);
 
-                    services.AddTransient<RetryHandler>();
+                    
                 })
-                .ConfigureTools(tools => {
-                    if (appConfig.ValidateTool("ListAllowedDirectories"))
-                        tools.AddHandler<ListAllowedDirectoriesToolHandler>();                  
-                    if (appConfig.ValidateTool("ReadMultipleFiles"))
-                        tools.AddHandler<ReadMultipleFilesToolHandler>();
-                    if (appConfig.ValidateTool("WriteFile"))
-                        tools.AddHandler<WriteFileToolHandler>();
-                    if (appConfig.ValidateTool("WriteFileAtPosition"))
-                        tools.AddHandler<WriteFileAtPositionToolHandler>();
-                    if (appConfig.ValidateTool("CreateDirectory"))
-                        tools.AddHandler<CreateDirectoryToolHandler>();
-                    if (appConfig.ValidateTool("ListDirectory"))
-                        tools.AddHandler<ListDirectoryToolHandler>();
-                    if (appConfig.ValidateTool("MoveFile"))
-                        tools.AddHandler<MoveFileToolHandler>();
-                    if (appConfig.ValidateTool("SearchFiles"))
-                        tools.AddHandler<SearchFilesToolHandler>();
-                    if (appConfig.ValidateTool("SearchPositionInFileWithRegex"))
-                        tools.AddHandler<SearchPositionInFileWithRegexToolHandler>();
-                    if (appConfig.ValidateTool("GetFileInfo"))
-                        tools.AddHandler<GetFileInfoToolHandler>();
-                    if (appConfig.ValidateTool("DeleteAtPosition"))
-                        tools.AddHandler<DeleteAtPositionToolHandler>();
-                    if (appConfig.ValidateTool("SearchAndReplace"))
-                        tools.AddHandler<SearchAndReplaceToolHandler>();
-                    if (appConfig.ValidateTool("DeleteFile"))
-                        tools.AddHandler<DeleteFileToolHandler>();
-                    if (appConfig.ValidateTool("DotNet"))
-                        tools.AddHandler<DotNetToolHandler>();
-
-                    if (appConfig.ValidateTool("Calculator"))
-                        tools.AddHandler<CalculatorToolHandler>();
-
-                    if (appConfig.ValidateTool("BraveWebSearch"))
-                        tools.AddHandler<BraveWebSearchToolHandler>();
-                    if (appConfig.ValidateTool("BraveLocalSearch"))
-                        tools.AddHandler<BraveLocalSearchToolHandler>();
-
-                    if (appConfig.ValidateTool("GitCommit"))
-                        tools.AddHandler<GitCommitToolHandler>();
-                    if (appConfig.ValidateTool("GitFetch"))
-                        tools.AddHandler<GitFetchToolHandler>();
-                    if (appConfig.ValidateTool("GitPull"))
-                        tools.AddHandler<GitPullToolHandler>();
-                    if (appConfig.ValidateTool("GitPush"))
-                        tools.AddHandler<GitPushToolHandler>();
-                    if (appConfig.ValidateTool("GitBranches"))
-                        tools.AddHandler<GitBranchesToolHandler>();
-                    if (appConfig.ValidateTool("GitCreateBranch"))
-                        tools.AddHandler<GitCreateBranchToolHandler>();
-                    if (appConfig.ValidateTool("GitCheckout"))
-                        tools.AddHandler<GitCheckoutToolHandler>();
-                    if (appConfig.ValidateTool("GitDeleteBranch"))
-                        tools.AddHandler<GitDeleteBranchToolHandler>();
-                    if (appConfig.ValidateTool("GitMerge"))
-                        tools.AddHandler<GitMergeToolHandler>();
-                    
-                    if (appConfig.ValidateTool("GitConflicts"))
-                        tools.AddHandler<GitConflictsToolHandler>();
-                    
+                .ConfigureTools(tools => {                 
+                    // Configuration des outils pour chaque module
+                    foreach (var module in modules)
+                    {
+                        module.ConfigureTools(tools, appConfig);
+                    }
                 })
                 .Build();
 
@@ -187,12 +112,22 @@ namespace mcp_toolskit
                 Log.CloseAndFlush(); // Important: flush any remaining logs
             }
         }
-        private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+        
+
+        /// <summary>
+        /// Recherche et retourne toutes les implémentations de IModuleConfiguration dans l'assembly courant
+        /// </summary>
+        private static IEnumerable<IModuleConfiguration> GetModuleConfigurations()
         {
-            return HttpPolicyExtensions
-                .HandleTransientHttpError()
-                .WaitAndRetryAsync(3, retryAttempt =>
-                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+            var moduleConfigurationType = typeof(IModuleConfiguration);
+
+            return System.Reflection.Assembly.GetExecutingAssembly()
+                .GetTypes()
+                .Where(t => moduleConfigurationType.IsAssignableFrom(t) &&
+                            !t.IsInterface &&
+                            !t.IsAbstract)
+                .Select(t => (IModuleConfiguration)Activator.CreateInstance(t)!)
+                .Where(module => module != null);
         }
     }
 }
