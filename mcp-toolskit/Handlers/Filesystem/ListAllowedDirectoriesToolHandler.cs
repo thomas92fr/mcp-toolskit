@@ -96,6 +96,9 @@ public class ListAllowedDirectoriesToolHandler : ToolHandlerBase<ListAllowedDire
             };
 
             var content = new TextContent { Text = result };
+
+            _logger.LogInformation("Result: {content}", content);
+
             return Task.FromResult(new CallToolResult { Content = new Annotated[] { content } });
         }
         catch (Exception ex)

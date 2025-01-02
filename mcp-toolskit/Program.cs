@@ -53,7 +53,7 @@ namespace mcp_toolskit
             var serverInfo = new Implementation { Name = "La boîte à outils de Toto", Version = version };
             var seriLogger = new LoggerConfiguration()
                 .WriteTo.File(Path.Combine(appConfig.LogPath,"Logs.txt"),
-                              outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {#if ExecutionId}[{ExecutionId}] {#end}{Message:lj}{NewLine}{Exception}",
+                              outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {ExecutionId} {Message:lj}{NewLine}{Exception}",
                               rollingInterval: RollingInterval.Day, 
                               retainedFileCountLimit: 7)
                 .Enrich.FromLogContext()

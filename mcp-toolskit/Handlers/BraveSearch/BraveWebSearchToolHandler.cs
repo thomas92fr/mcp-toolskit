@@ -10,6 +10,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
 using Serilog.Context;
+using Serilog.Core;
 using System.ComponentModel;
 using System.IO.Compression;
 using System.Net.Http.Headers;
@@ -96,6 +97,9 @@ public class BraveWebSearchToolHandler : ToolHandlerBase<BraveWebSearchParameter
             };
 
             var content = new TextContent { Text = result };
+
+            _logger.LogInformation("Result: {content}", content);
+
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)

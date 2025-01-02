@@ -82,6 +82,9 @@ public class DotNetToolHandler : ToolHandlerBase<DotNetParameters>
             };
 
             var content = new TextContent { Text = result };
+
+            _logger.LogInformation("Result: {content}", content);
+
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
