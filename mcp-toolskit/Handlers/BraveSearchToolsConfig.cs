@@ -1,6 +1,5 @@
 ﻿using mcp_toolskit.Handlers.BraveSearch;
 using mcp_toolskit.Handlers.BraveSearch.Helpers;
-using mcp_toolskit.Handlers.Filesystem;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.NET.Server.Builder;
@@ -44,7 +43,7 @@ namespace mcp_toolskit.Handlers
                 });
             }
 
-            BraveSearchHttpClient.AddPolicyHandler(GetRetryPolicy());  // Optionnel : Ajouter une politique de retry
+            BraveSearchHttpClient.AddPolicyHandler(GetRetryPolicy());  
             BraveSearchHttpClient.AddHttpMessageHandler<RetryHandler>();
 
             services.AddTransient<RetryHandler>();

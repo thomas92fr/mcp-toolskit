@@ -1,13 +1,7 @@
 ﻿using mcp_toolskit.Handlers.Filesystem;
-using mcp_toolskit.Handlers.Git;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.NET.Server.Builder;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace mcp_toolskit.Handlers
 {
@@ -21,8 +15,8 @@ namespace mcp_toolskit.Handlers
                 tools.AddHandler<ReadMultipleFilesToolHandler>();
             if (appConfig.ValidateTool("WriteFile"))
                 tools.AddHandler<WriteFileToolHandler>();
-            if (appConfig.ValidateTool("WriteFileAtPosition"))
-                tools.AddHandler<WriteFileAtPositionToolHandler>();
+            //if (appConfig.ValidateTool("WriteFileAtPosition"))
+            //    tools.AddHandler<WriteFileAtPositionToolHandler>();
             if (appConfig.ValidateTool("CreateDirectory"))
                 tools.AddHandler<CreateDirectoryToolHandler>();
             if (appConfig.ValidateTool("ListDirectory"))
@@ -33,16 +27,18 @@ namespace mcp_toolskit.Handlers
                 tools.AddHandler<SearchFilesToolHandler>();
             if (appConfig.ValidateTool("SearchInFiles"))
                 tools.AddHandler<SearchInFilesToolHandler>();
-            if (appConfig.ValidateTool("SearchPositionInFileWithRegex"))
-                tools.AddHandler<SearchPositionInFileWithRegexToolHandler>();
+            //if (appConfig.ValidateTool("SearchPositionInFileWithRegex"))
+            //    tools.AddHandler<SearchPositionInFileWithRegexToolHandler>();
             if (appConfig.ValidateTool("GetFileInfo"))
                 tools.AddHandler<GetFileInfoToolHandler>();
-            if (appConfig.ValidateTool("DeleteAtPosition"))
-                tools.AddHandler<DeleteAtPositionToolHandler>();
+            //if (appConfig.ValidateTool("DeleteAtPosition"))
+            //    tools.AddHandler<DeleteAtPositionToolHandler>();
             if (appConfig.ValidateTool("SearchAndReplace"))
                 tools.AddHandler<SearchAndReplaceToolHandler>();
             if (appConfig.ValidateTool("DeleteFile"))
                 tools.AddHandler<DeleteFileToolHandler>();
+            //if (appConfig.ValidateTool("ReplaceFunction"))
+            //    tools.AddHandler<ReplaceFunctionToolHandler>();
 
             
 

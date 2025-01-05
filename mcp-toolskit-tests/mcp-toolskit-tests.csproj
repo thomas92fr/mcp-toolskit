@@ -29,8 +29,4 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="TestHandlers\Filesystem\" />
-  </ItemGroup>
-
 </Project>

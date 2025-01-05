@@ -4,7 +4,7 @@
 
   "_ForbiddenTools": "Liste des outils interdits.",
   "ForbiddenTools": [
-    "SearchAndReplace"
+    ""
   ],
 
   "_AllowedDirectories": "Liste des répertoires autorisés pour les opérations sur le système de fichiers.",

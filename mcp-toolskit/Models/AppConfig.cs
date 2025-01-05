@@ -1,4 +1,3 @@
-using System;
 using System.Text.Json;
 
 namespace mcp_toolskit.Models
@@ -23,7 +22,8 @@ namespace mcp_toolskit.Models
         /// </summary>
         public string UserPassword { get; set; } = string.Empty;
 
-    }
+    }    
+
     /// <summary>
     /// Configuration spécifique pour BraveSearch API
     /// </summary>

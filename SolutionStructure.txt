@@ -28,8 +28,10 @@ mcp-toolskit
             ListDirectoryToolHandler.cs
             MoveFileToolHandler.cs
             ReadMultipleFilesToolHandler.cs
+            ReplaceFunctionToolHandler.cs
             SearchAndReplaceToolHandler.cs
             SearchFilesToolHandler.cs
+            SearchInFilesToolHandler.cs
             SearchPositionInFileWithRegexToolHandler.cs
             WriteFileAtPositionToolHandler.cs
             WriteFileToolHandler.cs
@@ -37,10 +39,20 @@ mcp-toolskit
             GitBranchesToolHandler.cs
             GitCheckoutToolHandler.cs
             GitCommitToolHandler.cs
+            GitConflictsToolHandler.cs
+            GitCreateBranchToolHandler.cs
             GitDeleteBranchToolHandler.cs
             GitFetchToolHandler.cs
             GitPullToolHandler.cs
             GitPushToolHandler.cs
+        Systems
+            SystemInfoToolHandler.cs
+        BraveSearchToolsConfig.cs
+        CalculatorToolsConfig.cs
+        DotNetToolsConfig.cs
+        FileSystemToolsConfig.cs
+        GitToolsConfig.cs
+        SystemInfoToolsConfig.cs
     Helpers
     Models
         AppConfig.cs
@@ -49,6 +61,7 @@ mcp-toolskit
             FolderProfile.pubxml
             FolderProfile.pubxml.user
     config.json
+    IModuleConfiguration.cs
     mcp-toolskit.csproj
     mcp-toolskit.csproj.user
     Program.cs
@@ -63,8 +76,10 @@ mcp-toolskit-tests
             DeleteAtPositionToolHandler.cs
             MoveFileToolHandler.cs
             ReadMultipleFilesToolHandler.cs
+            ReplaceFunctionToolHandlerTests.cs
             SearchPositionInFileWithRegexToolHandler.cs
             WriteFileAtPositionToolHandler.cs
+            WriteFileToolHandler.cs
     mcp-toolskit-tests.csproj
 TestResults
     TestResults.html

@@ -137,9 +137,13 @@ public class WriteFileToolHandler : ToolHandlerBase<WriteFileParameters>
 
         var validPath = _appConfig.ValidatePath(parameters.Path);
 
-        // Read existing content
-        var content = await File.ReadAllTextAsync(validPath);
-        _logger.LogInformation("Original file content:\n{content}", content);
+        if (File.Exists(validPath))
+        {
+            // Read existing content
+            var content = await File.ReadAllTextAsync(validPath);
+            _logger.LogInformation("Original file content:\n{content}", content);
+        }
+       
 
         await File.WriteAllTextAsync(validPath, parameters.Content);
         _logger.LogInformation("New file content:\n{content}", parameters.Content);

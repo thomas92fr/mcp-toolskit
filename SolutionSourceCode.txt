@@ -332,6 +332,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.IO.Compression;
 using System.Net.Http.Headers;
@@ -395,6 +396,7 @@ public class BraveLocalSearchToolHandler : ToolHandlerBase&lt;BraveLocalSearchPa
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -404,6 +406,7 @@ public class BraveLocalSearchToolHandler : ToolHandlerBase&lt;BraveLocalSearchPa
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -602,6 +605,8 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
+using Serilog.Core;
 using System.ComponentModel;
 using System.IO.Compression;
 using System.Net.Http.Headers;
@@ -664,6 +669,7 @@ public class BraveWebSearchToolHandler : ToolHandlerBase&lt;BraveWebSearchParame
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -675,6 +681,7 @@ public class BraveWebSearchToolHandler : ToolHandlerBase&lt;BraveWebSearchParame
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -767,6 +774,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 namespace mcp_toolskit.Handlers;
 public class CalculatorParameters
 {
@@ -851,6 +859,7 @@ public class CalculatorToolHandler(
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         var result = parameters.Operation switch
         {
@@ -902,6 +911,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.Collections;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -954,6 +964,7 @@ public class DotNetToolHandler : ToolHandlerBase&lt;DotNetParameters&gt;
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Running dotnet command: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -963,6 +974,7 @@ public class DotNetToolHandler : ToolHandlerBase&lt;DotNetParameters&gt;
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1043,6 +1055,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -1095,6 +1108,7 @@ public class CreateDirectoryToolHandler : ToolHandlerBase&lt;CreateDirectoryPara
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1104,6 +1118,7 @@ public class CreateDirectoryToolHandler : ToolHandlerBase&lt;CreateDirectoryPara
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1149,6 +1164,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -1211,6 +1227,7 @@ public class DeleteAtPositionToolHandler : ToolHandlerBase&lt;DeleteAtPositionPa
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1220,6 +1237,7 @@ public class DeleteAtPositionToolHandler : ToolHandlerBase&lt;DeleteAtPositionPa
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1238,6 +1256,7 @@ public class DeleteAtPositionToolHandler : ToolHandlerBase&lt;DeleteAtPositionPa
             throw new ArgumentException(&quot;Position cannot be negative&quot;);
         var validPath = _appConfig.ValidatePath(parameters.Path);
         var content = await File.ReadAllTextAsync(validPath);
+        _logger.LogInformation(&quot;Original file content:\n{content}&quot;, content);
         if (parameters.Position &gt;= content.Length)
             throw new ArgumentException(&quot;Position is beyond end of file&quot;);
         var effectiveLength = Math.Min(parameters.Length, content.Length - parameters.Position);
@@ -1278,6 +1297,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -1330,6 +1350,7 @@ public class DeleteFileToolHandler : ToolHandlerBase&lt;DeleteFileParameters&gt;
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1339,6 +1360,7 @@ public class DeleteFileToolHandler : ToolHandlerBase&lt;DeleteFileParameters&gt;
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1354,6 +1376,8 @@ public class DeleteFileToolHandler : ToolHandlerBase&lt;DeleteFileParameters&gt;
         var validPath = _appConfig.ValidatePath(parameters.Path);
         if (!File.Exists(validPath))
             throw new FileNotFoundException($&quot;The file {validPath} does not exist.&quot;);
+        var content = await File.ReadAllTextAsync(validPath);
+        _logger.LogInformation(&quot;Original file content:\n{content}&quot;, content);
         await Task.Run(() =&gt; File.Delete(validPath));
         return $&quot;File {validPath} has been successfully deleted.&quot;;
     }
@@ -1380,6 +1404,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -1432,6 +1457,7 @@ public class GetFileInfoToolHandler : ToolHandlerBase&lt;GetFileInfoParameters&g
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1441,6 +1467,7 @@ public class GetFileInfoToolHandler : ToolHandlerBase&lt;GetFileInfoParameters&g
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1490,6 +1517,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -1537,6 +1565,7 @@ public class ListAllowedDirectoriesToolHandler : ToolHandlerBase&lt;ListAllowedD
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1546,6 +1575,7 @@ public class ListAllowedDirectoriesToolHandler : ToolHandlerBase&lt;ListAllowedD
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return Task.FromResult(new CallToolResult { Content = new Annotated[] { content } });
         }
         catch (Exception ex)
@@ -1581,6 +1611,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -1633,6 +1664,7 @@ public class ListDirectoryToolHandler : ToolHandlerBase&lt;ListDirectoryParamete
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1642,6 +1674,7 @@ public class ListDirectoryToolHandler : ToolHandlerBase&lt;ListDirectoryParamete
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1687,6 +1720,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -1743,6 +1777,7 @@ public class MoveFileToolHandler : ToolHandlerBase&lt;MoveFileParameters&gt;
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1752,6 +1787,7 @@ public class MoveFileToolHandler : ToolHandlerBase&lt;MoveFileParameters&gt;
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1768,6 +1804,8 @@ public class MoveFileToolHandler : ToolHandlerBase&lt;MoveFileParameters&gt;
             throw new ArgumentException(&quot;Destination path is required for MoveFile operation&quot;);
         var validSourcePath = _appConfig.ValidatePath(parameters.Source);
         var validDestPath = _appConfig.ValidatePath(parameters.Destination);
+        _logger.LogInformation(&quot;Original file source: {validSourcePath}&quot;, validSourcePath);
+        _logger.LogInformation(&quot;file dest.: {validDestPath}&quot;, validDestPath);
         File.Move(validSourcePath, validDestPath);
         return Task.FromResult($&quot;Successfully moved {parameters.Source} to {parameters.Destination}&quot;);
     }
@@ -1794,6 +1832,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -1846,6 +1885,7 @@ public class ReadMultipleFilesToolHandler : ToolHandlerBase&lt;ReadMultipleFiles
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1855,6 +1895,7 @@ public class ReadMultipleFilesToolHandler : ToolHandlerBase&lt;ReadMultipleFiles
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1895,6 +1936,162 @@ public class ReadMultipleFilesToolHandler : ToolHandlerBase&lt;ReadMultipleFiles
 </file>
 
 
+<file path="mcp-toolskit\Handlers\Filesystem\ReplaceFunctionToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;ReplaceFunctionOperation&gt;))]
+public enum ReplaceFunctionOperation
+{
+    [Description(&quot;Replaces function content in source code using signature and markers&quot;)]
+    [Parameters(
+        &quot;Path: Full path of the file to modify&quot;,
+        &quot;FunctionSignature: Signature of the function to replace&quot;,
+        &quot;StartMarkers: Array of possible function start markers&quot;,
+        &quot;EndMarkers: Array of possible function end markers&quot;,
+        &quot;NewFunctionCode: New function code content&quot;)]
+    ReplaceFunction
+}
+public class ReplaceFunctionParameters
+{
+    public required ReplaceFunctionOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public required string FunctionSignature { get; init; }
+    public required string[] StartMarkers { get; init; }
+    public required string[] EndMarkers { get; init; }
+    public required string NewFunctionCode { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
+        if (FunctionSignature != null) sb.Append($&quot;, FunctionSignature: {FunctionSignature}&quot;);
+        if (StartMarkers != null) sb.Append($&quot;, StartMarkers: [{string.Join(&quot;, &quot;, StartMarkers)}]&quot;);
+        if (EndMarkers != null) sb.Append($&quot;, EndMarkers: [{string.Join(&quot;, &quot;, EndMarkers)}]&quot;);
+        if (NewFunctionCode != null) sb.Append($&quot;, NewFunctionCode length: {NewFunctionCode.Length}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(ReplaceFunctionParameters))]
+public partial class ReplaceFunctionParametersJsonContext : JsonSerializerContext { }
+public class ReplaceFunctionToolHandler : ToolHandlerBase&lt;ReplaceFunctionParameters&gt;
+{
+    private readonly ILogger&lt;ReplaceFunctionToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public ReplaceFunctionToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;ReplaceFunctionToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;ReplaceFunction&quot;,
+        Description = typeof(ReplaceFunctionOperation).GenerateFullDescription(),
+        InputSchema = ReplaceFunctionParametersJsonContext.Default.ReplaceFunctionParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        ReplaceFunctionParametersJsonContext.Default.ReplaceFunctionParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        ReplaceFunctionParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                ReplaceFunctionOperation.ReplaceFunction =&gt; await ReplaceFunctionAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in replace function operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; ReplaceFunctionAsync(ReplaceFunctionParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required&quot;);
+        if (string.IsNullOrEmpty(parameters.FunctionSignature))
+            throw new ArgumentException(&quot;Function signature is required&quot;);
+        if (parameters.StartMarkers == null || parameters.StartMarkers.Length == 0)
+            throw new ArgumentException(&quot;At least one start marker is required&quot;);
+        if (parameters.EndMarkers == null || parameters.EndMarkers.Length == 0)
+            throw new ArgumentException(&quot;At least one end marker is required&quot;);
+        if (string.IsNullOrEmpty(parameters.NewFunctionCode))
+            throw new ArgumentException(&quot;New function code is required&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var sourceCode = await File.ReadAllTextAsync(validPath);
+        _logger.LogInformation(&quot;Original file content:\n{content}&quot;, sourceCode);
+        var signaturePos = sourceCode.IndexOf(parameters.FunctionSignature);
+        if (signaturePos == -1)
+        {
+            return &quot;Function signature not found&quot;;
+        }
+        var startPositions = parameters.StartMarkers
+            .Select(marker =&gt; sourceCode.LastIndexOf(marker, signaturePos))
+            .Where(pos =&gt; pos != -1)
+            .ToList();
+        if (!startPositions.Any())
+        {
+            return &quot;Start marker not found&quot;;
+        }
+        var startPos = startPositions.Max();
+        var endPositions = parameters.EndMarkers
+            .Select(marker =&gt; sourceCode.IndexOf(marker, signaturePos))
+            .Where(pos =&gt; pos != -1)
+            .ToList();
+        if (!endPositions.Any())
+        {
+            return &quot;End marker not found&quot;;
+        }
+        var endPos = endPositions.Min();
+        var endMarker = parameters.EndMarkers
+            .First(marker =&gt; sourceCode.IndexOf(marker, signaturePos) == endPos);
+        var finalEndPos = endPos + endMarker.Length;
+        var newSourceCode = sourceCode.Substring(0, startPos) + 
+                           parameters.NewFunctionCode + 
+                           sourceCode.Substring(finalEndPos);
+        await File.WriteAllTextAsync(validPath, newSourceCode);
+        _logger.LogInformation(&quot;New file content:\n{content}&quot;, newSourceCode);
+        return $&quot;Successfully replaced function in {parameters.Path}&quot;;
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        ReplaceFunctionParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
 <file path="mcp-toolskit\Handlers\Filesystem\SearchAndReplaceToolHandler.cs">
 
 using mcp_toolskit.Attributes;
@@ -1906,6 +2103,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -1968,6 +2166,7 @@ public class SearchAndReplaceToolHandler : ToolHandlerBase&lt;SearchAndReplacePa
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -1977,6 +2176,7 @@ public class SearchAndReplaceToolHandler : ToolHandlerBase&lt;SearchAndReplacePa
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -1995,6 +2195,7 @@ public class SearchAndReplaceToolHandler : ToolHandlerBase&lt;SearchAndReplacePa
             throw new ArgumentException(&quot;Replacement content is required for SearchAndReplace operation&quot;);
         var validPath = _appConfig.ValidatePath(parameters.Path);
         var content = await File.ReadAllTextAsync(validPath);
+        _logger.LogInformation(&quot;Original file content:\n{content}&quot;, content);
         var regex = new System.Text.RegularExpressions.Regex(parameters.Regex);
         var matches = regex.Matches(content);
         if (!matches.Any())
@@ -2017,6 +2218,7 @@ public class SearchAndReplaceToolHandler : ToolHandlerBase&lt;SearchAndReplacePa
             newContent = regex.Replace(content, parameters.Replacement);
         }
         await File.WriteAllTextAsync(validPath, newContent);
+        _logger.LogInformation(&quot;New file content:\n{content}&quot;, newContent);
         return $&quot;Successfully replaced {matches.Count} occurrences in {parameters.Path}&quot;;
     }
     public Task&lt;CallToolResult&gt; TestHandleAsync(
@@ -2042,6 +2244,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -2098,6 +2301,7 @@ public class SearchFilesToolHandler : ToolHandlerBase&lt;SearchFilesParameters&g
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -2107,6 +2311,7 @@ public class SearchFilesToolHandler : ToolHandlerBase&lt;SearchFilesParameters&g
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -2152,6 +2357,155 @@ public class SearchFilesToolHandler : ToolHandlerBase&lt;SearchFilesParameters&g
 </file>
 
 
+<file path="mcp-toolskit\Handlers\Filesystem\SearchInFilesToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using System.Text.RegularExpressions;
+namespace mcp_toolskit.Handlers.Filesystem;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;SearchInFilesOperation&gt;))]
+public enum SearchInFilesOperation
+{
+    [Description(&quot;Search in files content using a regex pattern&quot;)]
+    [Parameters(
+        &quot;Path: Directory to search in&quot;,
+        &quot;Pattern: Regex pattern to search in file contents&quot;,
+        &quot;FileExtensions: Optional array of file extensions to filter (e.g. [\&quot;.txt\&quot;, \&quot;.cs\&quot;])&quot;)]
+    SearchInFiles
+}
+public class SearchInFilesParameters
+{
+    public required SearchInFilesOperation Operation { get; init; }
+    public required string Path { get; init; }
+    public required string Pattern { get; init; }
+    public required string[] FileExtensions { get; init; }  
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (Path != null) sb.Append($&quot;, Path: {Path}&quot;);
+        if (Pattern != null) sb.Append($&quot;, Pattern: {Pattern}&quot;);
+        if (FileExtensions != null) sb.Append($&quot;, Extensions: {string.Join(&quot;,&quot;, FileExtensions)}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(SearchInFilesParameters))]
+public partial class SearchInFilesParametersJsonContext : JsonSerializerContext { }
+public class SearchInFilesToolHandler : ToolHandlerBase&lt;SearchInFilesParameters&gt;
+{
+    private readonly ILogger&lt;SearchInFilesToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public SearchInFilesToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;SearchInFilesToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;SearchInFiles&quot;,
+        Description = typeof(SearchInFilesOperation).GenerateFullDescription(),
+        InputSchema = SearchInFilesParametersJsonContext.Default.SearchInFilesParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        SearchInFilesParametersJsonContext.Default.SearchInFilesParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        SearchInFilesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                SearchInFilesOperation.SearchInFiles =&gt; await SearchInFilesAsync(parameters, cancellationToken),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in search in files operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; SearchInFilesAsync(SearchInFilesParameters parameters, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(parameters.Path))
+            throw new ArgumentException(&quot;Path is required for SearchInFiles operation&quot;);
+        if (string.IsNullOrEmpty(parameters.Pattern))
+            throw new ArgumentException(&quot;Pattern is required for SearchInFiles operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.Path);
+        var regex = new Regex(parameters.Pattern, RegexOptions.Compiled);
+        var results = new List&lt;string&gt;();
+        var allFiles = Directory.GetFiles(validPath, &quot;*.*&quot;, SearchOption.AllDirectories);
+        var filesToProcess = parameters.FileExtensions != null &amp;&amp; parameters.FileExtensions.Length &gt; 0
+            ? allFiles.Where(f =&gt; parameters.FileExtensions.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+            : allFiles;
+        foreach (var file in filesToProcess)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+            try
+            {
+                var filePath = _appConfig.ValidatePath(file);
+                var content = await File.ReadAllTextAsync(filePath, cancellationToken);
+                if (regex.IsMatch(content))
+                {
+                    results.Add($&quot;Found match in: {filePath}&quot;);
+                    var lines = content.Split(&apos;\n&apos;);
+                    for (int i = 0; i &lt; lines.Length; i++)
+                    {
+                        if (regex.IsMatch(lines[i]))
+                        {
+                            var lineNum = i + 1;
+                            results.Add($&quot;  Line {lineNum}: {lines[i].Trim()}&quot;);
+                        }
+                    }
+                    results.Add(string.Empty); 
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, &quot;Error processing file: {file}&quot;, file);
+                continue;
+            }
+        }
+        return results.Any()
+            ? string.Join(&quot;\n&quot;, results)
+            : &quot;No matches found&quot;;
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        SearchInFilesParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
 <file path="mcp-toolskit\Handlers\Filesystem\SearchPositionInFileWithRegexToolHandler.cs">
 
 using mcp_toolskit.Attributes;
@@ -2163,6 +2517,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -2220,6 +2575,7 @@ public class SearchPositionInFileWithRegexToolHandler : ToolHandlerBase&lt;Searc
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -2229,6 +2585,7 @@ public class SearchPositionInFileWithRegexToolHandler : ToolHandlerBase&lt;Searc
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -2281,6 +2638,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -2340,6 +2698,7 @@ public class WriteFileAtPositionToolHandler : ToolHandlerBase&lt;WriteFileAtPosi
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -2349,6 +2708,7 @@ public class WriteFileAtPositionToolHandler : ToolHandlerBase&lt;WriteFileAtPosi
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -2374,7 +2734,8 @@ public class WriteFileAtPositionToolHandler : ToolHandlerBase&lt;WriteFileAtPosi
         string existingContent = &quot;&quot;;
         if (File.Exists(validPath))
         {
-            existingContent = await File.ReadAllTextAsync(validPath);
+            existingContent = await File.ReadAllTextAsync(validPath);                    
+            _logger.LogInformation(&quot;Original file content:\n{content}&quot;, existingContent);
         }
         string newContent;
         if (parameters.Position &gt; existingContent.Length)
@@ -2402,6 +2763,7 @@ public class WriteFileAtPositionToolHandler : ToolHandlerBase&lt;WriteFileAtPosi
                          existingContent.Substring(parameters.Position);
         }
         await File.WriteAllTextAsync(validPath, newContent);
+        _logger.LogInformation(&quot;New file content:\n{content}&quot;, newContent);
         return $&quot;Successfully wrote content at position {parameters.Position} in {parameters.Path}&quot;;
     }
     public Task&lt;CallToolResult&gt; TestHandleAsync(
@@ -2427,6 +2789,7 @@ using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
 using ModelContextProtocol.NET.Server.Contexts;
 using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -2483,6 +2846,7 @@ public class WriteFileToolHandler : ToolHandlerBase&lt;WriteFileParameters&gt;
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -2492,6 +2856,7 @@ public class WriteFileToolHandler : ToolHandlerBase&lt;WriteFileParameters&gt;
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -2507,7 +2872,13 @@ public class WriteFileToolHandler : ToolHandlerBase&lt;WriteFileParameters&gt;
         if (string.IsNullOrEmpty(parameters.Content))
             throw new ArgumentException(&quot;Content is required for WriteFile operation&quot;);
         var validPath = _appConfig.ValidatePath(parameters.Path);
+        if (File.Exists(validPath))
+        {
+            var content = await File.ReadAllTextAsync(validPath);
+            _logger.LogInformation(&quot;Original file content:\n{content}&quot;, content);
+        }
         await File.WriteAllTextAsync(validPath, parameters.Content);
+        _logger.LogInformation(&quot;New file content:\n{content}&quot;, parameters.Content);
         return $&quot;Successfully wrote to {parameters.Path}&quot;;
     }
     public Task&lt;CallToolResult&gt; TestHandleAsync(
@@ -2538,6 +2909,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 namespace mcp_toolskit.Handlers.Git;
 [JsonConverter(typeof(JsonStringEnumConverter&lt;GitBranchesOperation&gt;))]
 public enum GitBranchesOperation
@@ -2591,6 +2963,7 @@ public class GitBranchesToolHandler : ToolHandlerBase&lt;GitBranchesParameters&g
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Git Branches Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -2600,6 +2973,7 @@ public class GitBranchesToolHandler : ToolHandlerBase&lt;GitBranchesParameters&g
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -2665,6 +3039,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 namespace mcp_toolskit.Handlers.Git;
 [JsonConverter(typeof(JsonStringEnumConverter&lt;GitCheckoutOperation&gt;))]
 public enum GitCheckoutOperation
@@ -2718,6 +3093,7 @@ public class GitCheckoutToolHandler : ToolHandlerBase&lt;GitCheckoutParameters&g
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Git Checkout Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -2727,6 +3103,7 @@ public class GitCheckoutToolHandler : ToolHandlerBase&lt;GitCheckoutParameters&g
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -2782,6 +3159,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 namespace mcp_toolskit.Handlers.Git;
 [JsonConverter(typeof(JsonStringEnumConverter&lt;GitCommitOperation&gt;))]
 public enum GitCommitOperation
@@ -2835,6 +3213,7 @@ public class GitCommitToolHandler : ToolHandlerBase&lt;GitCommitParameters&gt;
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Git Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -2844,6 +3223,7 @@ public class GitCommitToolHandler : ToolHandlerBase&lt;GitCommitParameters&gt;
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -2879,6 +3259,254 @@ public class GitCommitToolHandler : ToolHandlerBase&lt;GitCommitParameters&gt;
 </file>
 
 
+<file path="mcp-toolskit\Handlers\Git\GitConflictsToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+using Serilog.Context;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitConflictsOperation&gt;))]
+public enum GitConflictsOperation
+{
+    [Description(&quot;Lists conflicts in the repository index&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;
+    )]
+    ListConflicts
+}
+public class GitConflictsParameters
+{
+    public required GitConflictsOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitConflictsParameters))]
+public partial class GitConflictsParametersJsonContext : JsonSerializerContext { }
+public class GitConflictsToolHandler : ToolHandlerBase&lt;GitConflictsParameters&gt;
+{
+    private readonly ILogger&lt;GitConflictsToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitConflictsToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitConflictsToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitConflicts&quot;,
+        Description = typeof(GitConflictsOperation).GenerateFullDescription(),
+        InputSchema = GitConflictsParametersJsonContext.Default.GitConflictsParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitConflictsParametersJsonContext.Default.GitConflictsParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitConflictsParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
+        _logger.LogInformation(&quot;Git Conflicts Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitConflictsOperation.ListConflicts =&gt; await ListRepositoryConflictsAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git Conflicts operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; ListRepositoryConflictsAsync(GitConflictsParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for ListConflicts operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var conflicts = repo.Index.Conflicts;
+            if (conflicts == null || !conflicts.Any())
+            {
+                return Task.FromResult(&quot;No conflicts found in the repository.&quot;);
+            }
+            var sb = new StringBuilder(&quot;Found the following conflicts:\n\n&quot;);
+            foreach (var conflict in conflicts)
+            {
+                sb.AppendLine($&quot;File path: {conflict.Ancestor.Path}&quot;);
+                sb.AppendLine($&quot;  Ancestor version: {conflict.Ancestor.Id}&quot;);
+                sb.AppendLine($&quot;  Ours version: {conflict.Ours.Id}&quot;);
+                sb.AppendLine($&quot;  Theirs version: {conflict.Theirs.Id}&quot;);
+                sb.AppendLine();
+            }
+            return Task.FromResult(sb.ToString());
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitConflictsParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\Git\GitCreateBranchToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using System.ComponentModel;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using LibGit2Sharp;
+using Serilog.Context;
+namespace mcp_toolskit.Handlers.Git;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;GitCreateBranchOperation&gt;))]
+public enum GitCreateBranchOperation
+{
+    [Description(&quot;Creates a new branch in a Git repository&quot;)]
+    [Parameters(
+        &quot;RepositoryPath: Path to the Git repository&quot;,
+        &quot;Branch: Name for the new branch&quot;,
+        &quot;FromBranch: Optional: source branch to create from (defaults to the repository&apos;s default branch)&quot;
+    )]
+    CreateBranch
+}
+public class GitCreateBranchParameters
+{
+    public required GitCreateBranchOperation Operation { get; init; }
+    public required string RepositoryPath { get; init; }
+    public required string Branch { get; init; }
+    public required string? FromBranch { get; init; }
+    public override string ToString()
+    {
+        var sb = new StringBuilder($&quot;Operation: {Operation}&quot;);
+        if (RepositoryPath != null) sb.Append($&quot;, RepositoryPath: {RepositoryPath}&quot;);
+        if (Branch != null) sb.Append($&quot;, Branch: {Branch}&quot;);
+        if (FromBranch != null) sb.Append($&quot;, FromBranch: {FromBranch}&quot;);
+        return sb.ToString();
+    }
+}
+[JsonSerializable(typeof(GitCreateBranchParameters))]
+public partial class GitCreateBranchParametersJsonContext : JsonSerializerContext { }
+public class GitCreateBranchToolHandler : ToolHandlerBase&lt;GitCreateBranchParameters&gt;
+{
+    private readonly ILogger&lt;GitCreateBranchToolHandler&gt; _logger;
+    private readonly AppConfig _appConfig;
+    public GitCreateBranchToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;GitCreateBranchToolHandler&gt; logger,
+        AppConfig appConfig
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _appConfig = appConfig;
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;GitCreateBranch&quot;,
+        Description = typeof(GitCreateBranchOperation).GenerateFullDescription(),
+        InputSchema = GitCreateBranchParametersJsonContext.Default.GitCreateBranchParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        GitCreateBranchParametersJsonContext.Default.GitCreateBranchParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        GitCreateBranchParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
+        _logger.LogInformation(&quot;Git Create Branch Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                GitCreateBranchOperation.CreateBranch =&gt; await CreateBranchAsync(parameters),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in Git Create Branch operation&quot;);
+            throw;
+        }
+    }
+    private Task&lt;string&gt; CreateBranchAsync(GitCreateBranchParameters parameters)
+    {
+        if (string.IsNullOrEmpty(parameters.RepositoryPath))
+            throw new ArgumentException(&quot;Repository path is required for Create Branch operation&quot;);
+        if (string.IsNullOrEmpty(parameters.Branch))
+            throw new ArgumentException(&quot;Branch name is required for Create Branch operation&quot;);
+        var validPath = _appConfig.ValidatePath(parameters.RepositoryPath);
+        using (var repo = new Repository(validPath))
+        {
+            var sourceBranch = !string.IsNullOrEmpty(parameters.FromBranch)
+                ? repo.Branches[parameters.FromBranch]
+                : repo.Head;
+            if (sourceBranch == null)
+                throw new ArgumentException($&quot;Source branch &apos;{parameters.FromBranch ?? &quot;HEAD&quot;}&apos; not found&quot;);
+            if (repo.Branches[parameters.Branch] != null)
+                throw new ArgumentException($&quot;Branch &apos;{parameters.Branch}&apos; already exists&quot;);
+            var newBranch = repo.CreateBranch(parameters.Branch, sourceBranch.Tip);
+            return Task.FromResult(
+                $&quot;Successfully created branch &apos;{parameters.Branch}&apos; from &apos;{sourceBranch.FriendlyName}&apos;&quot;
+            );
+        }
+    }
+    public Task&lt;CallToolResult&gt; TestHandleAsync(
+        GitCreateBranchParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return HandleAsync(parameters, cancellationToken);
+    }
+}
+
+</file>
+
+
 <file path="mcp-toolskit\Handlers\Git\GitDeleteBranchToolHandler.cs">
 
 using mcp_toolskit.Attributes;
@@ -2895,6 +3523,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 namespace mcp_toolskit.Handlers.Git;
 [JsonConverter(typeof(JsonStringEnumConverter&lt;GitDeleteBranchOperation&gt;))]
 public enum GitDeleteBranchOperation
@@ -2948,6 +3577,7 @@ public class GitDeleteBranchToolHandler : ToolHandlerBase&lt;GitDeleteBranchPara
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Git Delete Branch Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -2957,6 +3587,7 @@ public class GitDeleteBranchToolHandler : ToolHandlerBase&lt;GitDeleteBranchPara
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -3010,6 +3641,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 namespace mcp_toolskit.Handlers.Git;
 [JsonConverter(typeof(JsonStringEnumConverter&lt;GitFetchOperation&gt;))]
 public enum GitFetchOperation
@@ -3063,6 +3695,7 @@ public class GitFetchToolHandler : ToolHandlerBase&lt;GitFetchParameters&gt;
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Git Fetch Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -3072,6 +3705,7 @@ public class GitFetchToolHandler : ToolHandlerBase&lt;GitFetchParameters&gt;
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -3131,6 +3765,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 namespace mcp_toolskit.Handlers.Git;
 [JsonConverter(typeof(JsonStringEnumConverter&lt;GitPullOperation&gt;))]
 public enum GitPullOperation
@@ -3187,6 +3822,7 @@ public class GitPullToolHandler : ToolHandlerBase&lt;GitPullParameters&gt;
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Git Pull Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -3196,6 +3832,7 @@ public class GitPullToolHandler : ToolHandlerBase&lt;GitPullParameters&gt;
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -3270,6 +3907,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using LibGit2Sharp;
+using Serilog.Context;
 namespace mcp_toolskit.Handlers.Git;
 [JsonConverter(typeof(JsonStringEnumConverter&lt;GitPushOperation&gt;))]
 public enum GitPushOperation
@@ -3326,6 +3964,7 @@ public class GitPushToolHandler : ToolHandlerBase&lt;GitPushParameters&gt;
         CancellationToken cancellationToken = default
     )
     {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
         _logger.LogInformation(&quot;Git Push Query: {parameters}&quot;, parameters.ToString());
         try
         {
@@ -3335,6 +3974,7 @@ public class GitPushToolHandler : ToolHandlerBase&lt;GitPushParameters&gt;
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
             return new CallToolResult { Content = new Annotated[] { content } };
         }
         catch (Exception ex)
@@ -3382,9 +4022,379 @@ public class GitPushToolHandler : ToolHandlerBase&lt;GitPushParameters&gt;
 </file>
 
 
+<file path="mcp-toolskit\Handlers\Systems\SystemInfoToolHandler.cs">
+
+using mcp_toolskit.Attributes;
+using mcp_toolskit.Extentions;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Core.Models.Protocol.Client.Responses;
+using ModelContextProtocol.NET.Core.Models.Protocol.Common;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Server.Features.Tools;
+using Serilog.Context;
+using System.ComponentModel;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+namespace mcp_toolskit.Handlers.Systems;
+[JsonConverter(typeof(JsonStringEnumConverter&lt;SystemInfoOperation&gt;))]
+public enum SystemInfoOperation
+{
+    [Description(&quot;Returns geographical location and current date and time&quot;)]
+    GetLocationAndTime
+}
+public class SystemInfoParameters
+{
+    public required SystemInfoOperation Operation { get; init; }
+    public override string ToString()
+    {
+        return $&quot;Operation: {Operation}&quot;;
+    }
+}
+[JsonSerializable(typeof(SystemInfoParameters))]
+public partial class SystemInfoParametersJsonContext : JsonSerializerContext { }
+public class SystemInfoToolHandler : ToolHandlerBase&lt;SystemInfoParameters&gt;
+{
+    private readonly ILogger&lt;SystemInfoToolHandler&gt; _logger;
+    private readonly HttpClient _httpClient;
+    public SystemInfoToolHandler(
+        IServerContext serverContext,
+        ISessionContext sessionContext,
+        ILogger&lt;SystemInfoToolHandler&gt; logger,
+        IHttpClientFactory httpClientFactory
+    ) : base(tool, serverContext, sessionContext)
+    {
+        _logger = logger;
+        _httpClient = httpClientFactory.CreateClient(&quot;SystemInfo&quot;);
+    }
+    private static readonly Tool tool = new()
+    {
+        Name = &quot;SystemInfo&quot;,
+        Description = typeof(SystemInfoOperation).GenerateFullDescription(),
+        InputSchema = SystemInfoParametersJsonContext.Default.SystemInfoParameters.GetToolSchema()!
+    };
+    public override JsonTypeInfo JsonTypeInfo =&gt;
+        SystemInfoParametersJsonContext.Default.SystemInfoParameters;
+    protected override async Task&lt;CallToolResult&gt; HandleAsync(
+        SystemInfoParameters parameters,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var _ = LogContext.PushProperty(&quot;ExecutionId&quot;, Guid.NewGuid());
+        _logger.LogInformation(&quot;Query: {parameters}&quot;, parameters.ToString());
+        try
+        {
+            string result = parameters.Operation switch
+            {
+                SystemInfoOperation.GetLocationAndTime =&gt; await GetLocationAndTimeAsync(cancellationToken),
+                _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
+            };
+            var content = new TextContent { Text = result };
+            _logger.LogInformation(&quot;Result: {content}&quot;, content);
+            return new CallToolResult { Content = new Annotated[] { content } };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Error in system info operation&quot;);
+            throw;
+        }
+    }
+    private async Task&lt;string&gt; GetLocationAndTimeAsync(CancellationToken cancellationToken)
+    {
+        var currentTime = new
+        {
+            DateTime = DateTime.Now.ToString(&quot;F&quot;),
+            Timezone = TimeZoneInfo.Local.Id,
+            UtcOffset = TimeZoneInfo.Local.GetUtcOffset(DateTime.Now).ToString()
+        };
+        try
+        {
+            var response = await _httpClient.GetStringAsync(&quot;http:
+            var locationInfo = JsonSerializer.Deserialize&lt;JsonElement&gt;(response);
+            var status = locationInfo.GetProperty(&quot;status&quot;).GetString();
+            if (status != &quot;success&quot;)
+            {
+                throw new Exception(locationInfo.GetProperty(&quot;message&quot;).GetString() ?? &quot;Unknown error from ip-api.com&quot;);
+            }
+            var location = new
+            {
+                currentTime.DateTime,
+                currentTime.Timezone,
+                currentTime.UtcOffset,
+                City = locationInfo.GetProperty(&quot;city&quot;).GetString(),
+                Region = locationInfo.GetProperty(&quot;regionName&quot;).GetString(),
+                Country = locationInfo.GetProperty(&quot;country&quot;).GetString(),
+                IP = locationInfo.GetProperty(&quot;query&quot;).GetString(),
+                Latitude = locationInfo.GetProperty(&quot;lat&quot;).GetDouble(),
+                Longitude = locationInfo.GetProperty(&quot;lon&quot;).GetDouble()
+            };
+            return JsonSerializer.Serialize(location, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, &quot;Erreur lors de la récupération des informations système&quot;);
+            var fallbackLocation = new
+            {
+                currentTime.DateTime,
+                currentTime.Timezone,
+                currentTime.UtcOffset,
+                Location = &quot;Position unknown&quot;,
+                Error = ex.Message
+            };
+            return JsonSerializer.Serialize(fallbackLocation, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\BraveSearchToolsConfig.cs">
+
+using mcp_toolskit.Handlers.BraveSearch;
+using mcp_toolskit.Handlers.BraveSearch.Helpers;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.NET.Server.Builder;
+using Polly.Extensions.Http;
+using Polly;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+namespace mcp_toolskit.Handlers
+{
+    public class BraveSearchToolsConfig: IModuleConfiguration
+    {
+        public void ConfigureTools(IToolRegistry tools, AppConfig appConfig)
+        {
+            if (appConfig.ValidateTool(&quot;BraveWebSearch&quot;))
+                tools.AddHandler&lt;BraveWebSearchToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;BraveLocalSearch&quot;))
+                tools.AddHandler&lt;BraveLocalSearchToolHandler&gt;();
+        }
+        public void ConfigureServices(IServiceCollection services, AppConfig appConfig)
+        {
+            var BraveSearchHttpClient = services.AddHttpClient(&quot;BraveSearch&quot;)
+                .ConfigureHttpClient(client =&gt;
+                {
+                    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue(&quot;application/json&quot;));
+                    client.DefaultRequestHeaders.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue(&quot;gzip&quot;));
+                })
+                .SetHandlerLifetime(TimeSpan.FromMinutes(5));  
+            if (appConfig.BraveSearch.IgnoreSSLErrors)
+            {
+                BraveSearchHttpClient.ConfigurePrimaryHttpMessageHandler(() =&gt; new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =&gt; true
+                });
+            }
+            BraveSearchHttpClient.AddPolicyHandler(GetRetryPolicy());  
+            BraveSearchHttpClient.AddHttpMessageHandler&lt;RetryHandler&gt;();
+            services.AddTransient&lt;RetryHandler&gt;();
+        }
+        private static IAsyncPolicy&lt;HttpResponseMessage&gt; GetRetryPolicy()
+        {
+            return HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .WaitAndRetryAsync(3, retryAttempt =&gt;
+                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\CalculatorToolsConfig.cs">
+
+using mcp_toolskit.Models;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.NET.Server.Builder;
+namespace mcp_toolskit.Handlers
+{
+    public class CalculatorToolsConfig: IModuleConfiguration
+    {
+        public void ConfigureTools(IToolRegistry tools, AppConfig appConfig)
+        {
+            if (appConfig.ValidateTool(&quot;Calculator&quot;))
+                tools.AddHandler&lt;CalculatorToolHandler&gt;();
+        }
+        public void ConfigureServices(IServiceCollection services, AppConfig appConfig)
+        {
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\DotNetToolsConfig.cs">
+
+using mcp_toolskit.Handlers.DotNet;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.NET.Server.Builder;
+namespace mcp_toolskit.Handlers
+{
+    public class DotNetToolsConfig: IModuleConfiguration
+    {
+        public void ConfigureTools(IToolRegistry tools, AppConfig appConfig)
+        {
+            if (appConfig.ValidateTool(&quot;DotNet&quot;))
+                tools.AddHandler&lt;DotNetToolHandler&gt;();
+        }
+        public void ConfigureServices(IServiceCollection services, AppConfig appConfig)
+        {
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\FileSystemToolsConfig.cs">
+
+using mcp_toolskit.Handlers.Filesystem;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.NET.Server.Builder;
+namespace mcp_toolskit.Handlers
+{
+    public class FileSystemToolsConfig : IModuleConfiguration
+    {
+        public void ConfigureTools(IToolRegistry tools, AppConfig appConfig)
+        {
+            if (appConfig.ValidateTool(&quot;ListAllowedDirectories&quot;))
+                tools.AddHandler&lt;ListAllowedDirectoriesToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;ReadMultipleFiles&quot;))
+                tools.AddHandler&lt;ReadMultipleFilesToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;WriteFile&quot;))
+                tools.AddHandler&lt;WriteFileToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;CreateDirectory&quot;))
+                tools.AddHandler&lt;CreateDirectoryToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;ListDirectory&quot;))
+                tools.AddHandler&lt;ListDirectoryToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;MoveFile&quot;))
+                tools.AddHandler&lt;MoveFileToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;SearchFiles&quot;))
+                tools.AddHandler&lt;SearchFilesToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;SearchInFiles&quot;))
+                tools.AddHandler&lt;SearchInFilesToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GetFileInfo&quot;))
+                tools.AddHandler&lt;GetFileInfoToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;SearchAndReplace&quot;))
+                tools.AddHandler&lt;SearchAndReplaceToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;DeleteFile&quot;))
+                tools.AddHandler&lt;DeleteFileToolHandler&gt;();
+        }
+        public void ConfigureServices(IServiceCollection services, AppConfig appConfig)
+        {
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\GitToolsConfig.cs">
+
+using mcp_toolskit.Handlers.Git;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.NET.Server.Builder;
+namespace mcp_toolskit.Handlers
+{
+    public class GitToolsConfig : IModuleConfiguration
+    {
+        public void ConfigureTools(IToolRegistry tools, AppConfig appConfig)
+        {
+            if (appConfig.ValidateTool(&quot;GitCommit&quot;))
+                tools.AddHandler&lt;GitCommitToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GitFetch&quot;))
+                tools.AddHandler&lt;GitFetchToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GitPull&quot;))
+                tools.AddHandler&lt;GitPullToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GitPush&quot;))
+                tools.AddHandler&lt;GitPushToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GitBranches&quot;))
+                tools.AddHandler&lt;GitBranchesToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GitCreateBranch&quot;))
+                tools.AddHandler&lt;GitCreateBranchToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GitCheckout&quot;))
+                tools.AddHandler&lt;GitCheckoutToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GitDeleteBranch&quot;))
+                tools.AddHandler&lt;GitDeleteBranchToolHandler&gt;();
+            if (appConfig.ValidateTool(&quot;GitConflicts&quot;))
+                tools.AddHandler&lt;GitConflictsToolHandler&gt;();
+        }
+        public void ConfigureServices(IServiceCollection services, AppConfig appConfig)
+        {
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit\Handlers\SystemInfoToolsConfig.cs">
+
+using mcp_toolskit.Models;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.NET.Server.Builder;
+using Polly.Extensions.Http;
+using Polly;
+using mcp_toolskit.Handlers.Systems;
+namespace mcp_toolskit.Handlers
+{
+    public class SystemInfoToolsConfig : IModuleConfiguration
+    {
+        public void ConfigureTools(IToolRegistry tools, AppConfig appConfig)
+        {
+            if (appConfig.ValidateTool(&quot;SystemInfo&quot;))
+                tools.AddHandler&lt;SystemInfoToolHandler&gt;();
+        }
+        public void ConfigureServices(IServiceCollection services, AppConfig appConfig)
+        {
+            var systemInfoHttpClient = services.AddHttpClient(&quot;SystemInfo&quot;)
+                .ConfigureHttpClient(client =&gt;
+                {
+                    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue(&quot;application/json&quot;));
+                })
+                .SetHandlerLifetime(TimeSpan.FromMinutes(5));
+            if (appConfig.BraveSearch.IgnoreSSLErrors)
+            {
+                systemInfoHttpClient.ConfigurePrimaryHttpMessageHandler(() =&gt; new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =&gt; true
+                });
+            }
+            systemInfoHttpClient.AddPolicyHandler(GetRetryPolicy());
+        }
+        private static IAsyncPolicy&lt;HttpResponseMessage&gt; GetRetryPolicy()
+        {
+            return HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .WaitAndRetryAsync(3, retryAttempt =&gt;
+                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+        }
+    }
+}
+
+</file>
+
+
 <file path="mcp-toolskit\Models\AppConfig.cs">
 
-using System;
 using System.Text.Json;
 namespace mcp_toolskit.Models
 {
@@ -3393,7 +4403,7 @@ namespace mcp_toolskit.Models
         public string UserName { get; set; } = string.Empty;
         public string UserEmail { get; set; } = string.Empty;
         public string UserPassword { get; set; } = string.Empty;
-    }
+    }    
     public class BraveSearchConfig
     {
          public string ApiKey { get; set; } = string.Empty;
@@ -3490,22 +4500,31 @@ namespace mcp_toolskit.Models
 </file>
 
 
+<file path="mcp-toolskit\IModuleConfiguration.cs">
+
+using mcp_toolskit.Models;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.NET.Server.Builder;
+namespace mcp_toolskit
+{
+    public interface IModuleConfiguration
+    {
+        void ConfigureTools(IToolRegistry tools, AppConfig appConfig);
+        void ConfigureServices(IServiceCollection services, AppConfig appConfig);
+    }
+}
+
+</file>
+
+
 <file path="mcp-toolskit\Program.cs">
 
-using mcp_toolskit.Handlers;
-using mcp_toolskit.Handlers.DotNet;
-using mcp_toolskit.Handlers.Filesystem;
-using mcp_toolskit.Handlers.BraveSearch;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.NET.Core.Models.Protocol.Common;
 using ModelContextProtocol.NET.Server.Builder;
-using Polly.Extensions.Http;
-using Polly;
 using Serilog;
-using mcp_toolskit.Handlers.BraveSearch.Helpers;
-using mcp_toolskit.Handlers.Git;
 namespace mcp_toolskit
 {
     internal class Program
@@ -3529,12 +4548,15 @@ namespace mcp_toolskit
             string version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? &quot;Version inconnue&quot;;
             var serverInfo = new Implementation { Name = &quot;La boîte à outils de Toto&quot;, Version = version };
             var seriLogger = new LoggerConfiguration()
-                .WriteTo.File(Path.Combine(appConfig.LogPath,&quot;Logs.txt&quot;), 
+                .WriteTo.File(Path.Combine(appConfig.LogPath,&quot;Logs.txt&quot;),
+                              outputTemplate: &quot;{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {ExecutionId} {Message:lj}{NewLine}{Exception}&quot;,
                               rollingInterval: RollingInterval.Day, 
                               retainedFileCountLimit: 7)
+                .Enrich.FromLogContext()
                 .MinimumLevel.Debug()
                 .CreateLogger();
-            Log.Logger = seriLogger;
+            Log.Logger = seriLogger; 
+            var modules = GetModuleConfigurations();
             var server = new McpServerBuilder(serverInfo)
                 .AddStdioTransport()
                 .ConfigureLogging(logging =&gt; logging.AddSerilog(seriLogger).SetMinimumLevel(LogLevel.Trace))
@@ -3546,74 +4568,17 @@ namespace mcp_toolskit
                         builder.AddSerilog(seriLogger, dispose: true);
                         builder.SetMinimumLevel(LogLevel.Debug);
                     });
-                    var BraveSearchHttpClient = services.AddHttpClient(&quot;BraveSearch&quot;)
-                        .ConfigureHttpClient(client =&gt;
-                        {
-                            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue(&quot;application/json&quot;));
-                            client.DefaultRequestHeaders.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue(&quot;gzip&quot;));
-                        })
-                        .SetHandlerLifetime(TimeSpan.FromMinutes(5));  
-                    if(appConfig.BraveSearch.IgnoreSSLErrors)
+                    foreach (var module in modules)
                     {
-                        BraveSearchHttpClient.ConfigurePrimaryHttpMessageHandler(() =&gt; new HttpClientHandler
-                        {
-                            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =&gt; true
-                        });
+                        module.ConfigureServices(services, appConfig);
                     }
-                    BraveSearchHttpClient.AddPolicyHandler(GetRetryPolicy());  
-                    BraveSearchHttpClient.AddHttpMessageHandler&lt;RetryHandler&gt;();  
                     services.AddSingleton(appConfig);
-                    services.AddTransient&lt;RetryHandler&gt;();
                 })
-                .ConfigureTools(tools =&gt; {
-                    if (appConfig.ValidateTool(&quot;ListAllowedDirectories&quot;))
-                        tools.AddHandler&lt;ListAllowedDirectoriesToolHandler&gt;();                  
-                    if (appConfig.ValidateTool(&quot;ReadMultipleFiles&quot;))
-                        tools.AddHandler&lt;ReadMultipleFilesToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;WriteFile&quot;))
-                        tools.AddHandler&lt;WriteFileToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;WriteFileAtPosition&quot;))
-                        tools.AddHandler&lt;WriteFileAtPositionToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;CreateDirectory&quot;))
-                        tools.AddHandler&lt;CreateDirectoryToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;ListDirectory&quot;))
-                        tools.AddHandler&lt;ListDirectoryToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;MoveFile&quot;))
-                        tools.AddHandler&lt;MoveFileToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;SearchFiles&quot;))
-                        tools.AddHandler&lt;SearchFilesToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;SearchPositionInFileWithRegex&quot;))
-                        tools.AddHandler&lt;SearchPositionInFileWithRegexToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;GetFileInfo&quot;))
-                        tools.AddHandler&lt;GetFileInfoToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;DeleteAtPosition&quot;))
-                        tools.AddHandler&lt;DeleteAtPositionToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;SearchAndReplace&quot;))
-                        tools.AddHandler&lt;SearchAndReplaceToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;DeleteFile&quot;))
-                        tools.AddHandler&lt;DeleteFileToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;DotNet&quot;))
-                        tools.AddHandler&lt;DotNetToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;Calculator&quot;))
-                        tools.AddHandler&lt;CalculatorToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;BraveWebSearch&quot;))
-                        tools.AddHandler&lt;BraveWebSearchToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;BraveLocalSearch&quot;))
-                        tools.AddHandler&lt;BraveLocalSearchToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;GitCommit&quot;))
-                        tools.AddHandler&lt;GitCommitToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;GitFetch&quot;))
-                        tools.AddHandler&lt;GitFetchToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;GitPull&quot;))
-                        tools.AddHandler&lt;GitPullToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;GitPush&quot;))
-                        tools.AddHandler&lt;GitPushToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;GitBranches&quot;))
-                        tools.AddHandler&lt;GitBranchesToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;GitCheckout&quot;))
-                        tools.AddHandler&lt;GitCheckoutToolHandler&gt;();
-                    if (appConfig.ValidateTool(&quot;GitDeleteBranch&quot;))
-                        tools.AddHandler&lt;GitDeleteBranchToolHandler&gt;();
+                .ConfigureTools(tools =&gt; {                 
+                    foreach (var module in modules)
+                    {
+                        module.ConfigureTools(tools, appConfig);
+                    }
                 })
                 .Build();
             try
@@ -3631,12 +4596,16 @@ namespace mcp_toolskit
                 Log.CloseAndFlush(); 
             }
         }
-        private static IAsyncPolicy&lt;HttpResponseMessage&gt; GetRetryPolicy()
+        private static IEnumerable&lt;IModuleConfiguration&gt; GetModuleConfigurations()
         {
-            return HttpPolicyExtensions
-                .HandleTransientHttpError()
-                .WaitAndRetryAsync(3, retryAttempt =&gt;
-                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+            var moduleConfigurationType = typeof(IModuleConfiguration);
+            return System.Reflection.Assembly.GetExecutingAssembly()
+                .GetTypes()
+                .Where(t =&gt; moduleConfigurationType.IsAssignableFrom(t) &amp;&amp;
+                            !t.IsInterface &amp;&amp;
+                            !t.IsAbstract)
+                .Select(t =&gt; (IModuleConfiguration)Activator.CreateInstance(t)!)
+                .Where(module =&gt; module != null);
         }
     }
 }
@@ -4896,6 +5865,105 @@ namespace mcp_toolskit_tests.TestHandlers.Filesystem
 </file>
 
 
+<file path="mcp-toolskit-tests\TestHandlers\Filesystem\ReplaceFunctionToolHandlerTests.cs">
+
+using mcp_toolskit.Handlers.Filesystem;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using Moq;
+namespace mcp_toolskit_tests.TestHandlers.Filesystem
+{
+    [Collection(&quot;FileSystem&quot;)]  
+    public class TestReplaceFunctionToolHandler : IDisposable
+    {
+        private readonly Mock&lt;IServerContext&gt; _mockServerContext;
+        private readonly Mock&lt;ISessionContext&gt; _mockSessionContext;
+        private readonly Mock&lt;ILogger&lt;ReplaceFunctionToolHandler&gt;&gt; _mockLogger;
+        private readonly TestAppConfig _appConfig;
+        private readonly ReplaceFunctionToolHandler _handler;
+        private readonly string _testBasePath;
+        private readonly object _lock = new object();
+        public class TestAppConfig : AppConfig
+        {
+            public override string ValidatePath(string path)
+            {
+                return Path.GetFullPath(path);
+            }
+        }
+        public TestReplaceFunctionToolHandler()
+        {
+            _testBasePath = Path.Combine(Path.GetTempPath(), &quot;mcp-toolskit-tests&quot;, Guid.NewGuid().ToString().Replace(&quot;-&quot;, &quot;&quot;));
+            _mockServerContext = new Mock&lt;IServerContext&gt;();
+            _mockSessionContext = new Mock&lt;ISessionContext&gt;();
+            _mockLogger = new Mock&lt;ILogger&lt;ReplaceFunctionToolHandler&gt;&gt;();
+            _appConfig = new TestAppConfig();
+            _handler = new ReplaceFunctionToolHandler(
+                _mockServerContext.Object,
+                _mockSessionContext.Object,
+                _mockLogger.Object,
+                _appConfig
+            );
+            EnsureDirectoryExists(_testBasePath);
+        }
+        private void EnsureDirectoryExists(string path)
+        {
+            lock (_lock)
+            {
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+            }
+        }
+        private void CleanupDirectory(string path)
+        {
+            lock (_lock)
+            {
+                if (Directory.Exists(path))
+                {
+                    try
+                    {
+                        Directory.Delete(path, true);
+                    }
+                    catch (IOException)
+                    {
+                        Thread.Sleep(100);
+                        if (Directory.Exists(path))
+                        {
+                            Directory.Delete(path, true);
+                        }
+                    }
+                }
+            }
+        }
+        private string GetTestPath(string filename)
+        {
+            var path = Path.Combine(_testBasePath, filename);
+            EnsureDirectoryExists(Path.GetDirectoryName(path));
+            return path;
+        }
+        [Fact]
+        public async Task ReplaceFunction_ShouldReplaceCSharpFunction()
+        {
+            var filePath = GetTestPath(&quot;test.cs&quot;);
+            var initialContent = &quot;public class TestClass { public void Test() { 
+\n}&quot;
+            };
+            try
+            {
+                var result = await _handler.TestHandleAsync(parameters, default);
+                Assert.NotNull(result);
+                Assert.True(result.Content.Length &gt; 0);
+                var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+                Assert.Equal($&quot;Successfully replaced function in {filePath}&quot;, textContent.Text);
+                var actualContent = await File.ReadAllTextAsync(filePath);
+                Assert.Equal(&quot;public class TestClass { public void Test() {\n    
+
+</file>
+
+
 <file path="mcp-toolskit-tests\TestHandlers\Filesystem\SearchPositionInFileWithRegexToolHandler.cs">
 
 using mcp_toolskit.Handlers.Filesystem;
@@ -5306,6 +6374,182 @@ namespace mcp_toolskit_tests.TestHandlers.Filesystem
                 Path = filePath,
                 Content = &quot;Test content&quot;,
                 Position = 0
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        public void Dispose()
+        {
+            CleanupDirectory(Path.Combine(Path.GetTempPath(), &quot;mcp-toolskit-tests&quot;));
+        }
+    }
+}
+
+</file>
+
+
+<file path="mcp-toolskit-tests\TestHandlers\Filesystem\WriteFileToolHandler.cs">
+
+using mcp_toolskit.Handlers.Filesystem;
+using mcp_toolskit.Models;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.NET.Server.Contexts;
+using ModelContextProtocol.NET.Core.Models.Protocol.Shared.Content;
+using Moq;
+namespace mcp_toolskit_tests.TestHandlers.Filesystem
+{
+    [Collection(&quot;FileSystem&quot;)]  
+    public class TestWriteFileToolHandler : IDisposable
+    {
+        private readonly Mock&lt;IServerContext&gt; _mockServerContext;
+        private readonly Mock&lt;ISessionContext&gt; _mockSessionContext;
+        private readonly Mock&lt;ILogger&lt;WriteFileToolHandler&gt;&gt; _mockLogger;
+        private readonly TestAppConfig _appConfig;
+        private readonly WriteFileToolHandler _handler;
+        private readonly string _testBasePath;
+        private readonly object _lock = new object();
+        public class TestAppConfig : AppConfig
+        {
+            public override string ValidatePath(string path)
+            {
+                return Path.GetFullPath(path);
+            }
+        }
+        public TestWriteFileToolHandler()
+        {
+            _testBasePath = Path.Combine(Path.GetTempPath(), &quot;mcp-toolskit-tests&quot;, Guid.NewGuid().ToString().Replace(&quot;-&quot;, &quot;&quot;));
+            _mockServerContext = new Mock&lt;IServerContext&gt;();
+            _mockSessionContext = new Mock&lt;ISessionContext&gt;();
+            _mockLogger = new Mock&lt;ILogger&lt;WriteFileToolHandler&gt;&gt;();
+            _appConfig = new TestAppConfig();
+            _handler = new WriteFileToolHandler(
+                _mockServerContext.Object,
+                _mockSessionContext.Object,
+                _mockLogger.Object,
+                _appConfig
+            );
+            EnsureDirectoryExists(_testBasePath);
+        }
+        private void EnsureDirectoryExists(string path)
+        {
+            lock (_lock)
+            {
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+            }
+        }
+        private void CleanupDirectory(string path)
+        {
+            lock (_lock)
+            {
+                if (Directory.Exists(path))
+                {
+                    try
+                    {
+                        Directory.Delete(path, true);
+                    }
+                    catch (IOException)
+                    {
+                        Thread.Sleep(100);
+                        if (Directory.Exists(path))
+                        {
+                            Directory.Delete(path, true);
+                        }
+                    }
+                }
+            }
+        }
+        private string GetTestPath(string filename)
+        {
+            var path = Path.Combine(_testBasePath, filename);
+            EnsureDirectoryExists(Path.GetDirectoryName(path));
+            return path;
+        }
+        [Theory]
+        [InlineData(&quot;test.txt&quot;, &quot;Hello world&quot;, &quot;&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;New content&quot;, &quot;Old content&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Special chars: ~@#$%&quot;, &quot;Previous content&quot;)] 
+        [InlineData(&quot;test.txt&quot;, &quot;Line 1\nLine 2&quot;, &quot;Original&quot;)] 
+        public async Task WriteFile_ShouldWriteContentCorrectly(string filename, string newContent, string initialContent)
+        {
+            var filePath = GetTestPath(filename);
+            if (!string.IsNullOrEmpty(initialContent))
+            {
+                await File.WriteAllTextAsync(filePath, initialContent);
+            }
+            var parameters = new WriteFileParameters
+            {
+                Operation = WriteFileOperation.WriteFile,
+                Path = filePath,
+                Content = newContent
+            };
+            try
+            {
+                var result = await _handler.TestHandleAsync(parameters, default);
+                Assert.NotNull(result);
+                Assert.True(result.Content.Length &gt; 0);
+                var textContent = Assert.IsType&lt;TextContent&gt;(result.Content[0]);
+                Assert.Contains($&quot;Successfully wrote to {filePath}&quot;, textContent.Text);
+                var actualContent = await File.ReadAllTextAsync(filePath);
+                Assert.Equal(newContent, actualContent);
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                {
+                    try
+                    {
+                        File.Delete(filePath);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                }
+            }
+        }
+        [Theory]
+        [InlineData(&quot;&quot;)]
+        [InlineData(null)]
+        public async Task WriteFile_WithInvalidPath_ShouldThrowArgumentException(string filePath)
+        {
+            var parameters = new WriteFileParameters
+            {
+                Operation = WriteFileOperation.WriteFile,
+                Path = filePath,
+                Content = &quot;Test content&quot;
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Theory]
+        [InlineData(&quot;test.txt&quot;, &quot;&quot;)]
+        [InlineData(&quot;test.txt&quot;, null)]
+        public async Task WriteFile_WithInvalidContent_ShouldThrowArgumentException(string filename, string content)
+        {
+            var filePath = GetTestPath(filename);
+            var parameters = new WriteFileParameters
+            {
+                Operation = WriteFileOperation.WriteFile,
+                Path = filePath,
+                Content = content
+            };
+            await Assert.ThrowsAsync&lt;ArgumentException&gt;(
+                async () =&gt; await _handler.TestHandleAsync(parameters, default)
+            );
+        }
+        [Fact]
+        public async Task WriteFile_WithInvalidOperation_ShouldThrowArgumentException()
+        {
+            var filePath = GetTestPath(&quot;test.txt&quot;);
+            var parameters = new WriteFileParameters
+            {
+                Operation = (WriteFileOperation)999, 
+                Path = filePath,
+                Content = &quot;Test content&quot;
             };
             await Assert.ThrowsAsync&lt;ArgumentException&gt;(
                 async () =&gt; await _handler.TestHandleAsync(parameters, default)
