@@ -1,6 +1,5 @@
 using mcp_toolskit.Attributes;
 using mcp_toolskit.Extentions;
-using mcp_toolskit.Handlers.BraveSearch.Helpers;
 using mcp_toolskit.Handlers.BraveSearch.Models;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.Logging;
@@ -110,81 +109,81 @@ public class BraveLocalSearchToolHandler : ToolHandlerBase<BraveLocalSearchParam
 
     private async Task<string> PerformLocalSearchAsync(BraveLocalSearchParameters parameters, CancellationToken cancellationToken)
     {
-        return await BraveSearchRateLimiter.Instance.ExecuteAsync(async () =>
+       
+        var httpClient = _httpClientFactory.CreateClient("BraveSearch");
+        httpClient.DefaultRequestHeaders.Add("X-Subscription-Token", _appConfig.BraveSearch.ApiKey);
+
+        var webUrl = new UriBuilder("https://api.search.brave.com/res/v1/web/search");
+        var webQueryParams = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        webQueryParams["q"] = parameters.Query;
+        webQueryParams["search_lang"] = "en";
+        webQueryParams["result_filter"] = "locations";
+        webQueryParams["count"] = (parameters.Count ?? 5).ToString();
+        webUrl.Query = webQueryParams.ToString();
+
+        _logger.LogDebug("Sending request to Brave API: {Url}", webUrl.Uri);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, webUrl.Uri);
+        request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
+
+        using var webResponse = await httpClient.SendAsync(request, cancellationToken);
+        _logger.LogDebug("Response status: {StatusCode}", webResponse.StatusCode);
+
+        webResponse.EnsureSuccessStatusCode();
+
+        var bytes = await webResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+        string webContent;
+
+        if (bytes.Length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B)
         {
-            var httpClient = _httpClientFactory.CreateClient("BraveSearch");
-            httpClient.DefaultRequestHeaders.Add("X-Subscription-Token", _appConfig.BraveSearch.ApiKey);
+            _logger.LogDebug("Response is GZIP compressed, decompressing...");
+            using var memoryStream = new MemoryStream(bytes);
+            using var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress);
+            using var decompressedStream = new MemoryStream();
+            await gzipStream.CopyToAsync(decompressedStream, cancellationToken);
+            webContent = Encoding.UTF8.GetString(decompressedStream.ToArray());
+        }
+        else
+        {
+            webContent = Encoding.UTF8.GetString(bytes);
+        }
 
-            var webUrl = new UriBuilder("https://api.search.brave.com/res/v1/web/search");
-            var webQueryParams = System.Web.HttpUtility.ParseQueryString(string.Empty);
-            webQueryParams["q"] = parameters.Query;
-            webQueryParams["search_lang"] = "en";
-            webQueryParams["result_filter"] = "locations";
-            webQueryParams["count"] = (parameters.Count ?? 5).ToString();
-            webUrl.Query = webQueryParams.ToString();
+        _logger.LogDebug("Decompressed content: {Content}",
+            webContent.Length > 500 ? webContent[..500] + "..." : webContent);
 
-            _logger.LogDebug("Sending request to Brave API: {Url}", webUrl.Uri);
+        var braveWeb = JsonSerializer.Deserialize<BraveWeb>(webContent);
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, webUrl.Uri);
-            request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
+        var locationIds = braveWeb?.Locations?.Results?
+            .Where(r => !string.IsNullOrEmpty(r.Id))
+            .Select(r => r.Id)
+            .ToList() ?? new List<string>();
 
-            using var webResponse = await httpClient.SendAsync(request, cancellationToken);
-            _logger.LogDebug("Response status: {StatusCode}", webResponse.StatusCode);
-
-            webResponse.EnsureSuccessStatusCode();
-
-            var bytes = await webResponse.Content.ReadAsByteArrayAsync(cancellationToken);
-            string webContent;
-
-            if (bytes.Length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B)
+        if (!locationIds.Any())
+        {
+            await Task.Delay(1100);
+            return await new BraveWebSearchToolHandler(
+                ServerContext,
+                SessionContext,
+                _weblogger,
+                _appConfig,
+                _httpClientFactory
+            ).TestHandleAsync(new BraveWebSearchParameters
             {
-                _logger.LogDebug("Response is GZIP compressed, decompressing...");
-                using var memoryStream = new MemoryStream(bytes);
-                using var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress);
-                using var decompressedStream = new MemoryStream();
-                await gzipStream.CopyToAsync(decompressedStream, cancellationToken);
-                webContent = Encoding.UTF8.GetString(decompressedStream.ToArray());
-            }
-            else
-            {
-                webContent = Encoding.UTF8.GetString(bytes);
-            }
-
-            _logger.LogDebug("Decompressed content: {Content}",
-                webContent.Length > 500 ? webContent[..500] + "..." : webContent);
-
-            var braveWeb = JsonSerializer.Deserialize<BraveWeb>(webContent);
-
-            var locationIds = braveWeb?.Locations?.Results?
-                .Where(r => !string.IsNullOrEmpty(r.Id))
-                .Select(r => r.Id)
-                .ToList() ?? new List<string>();
-
-            if (!locationIds.Any())
-            {
-                return await new BraveWebSearchToolHandler(
-                    ServerContext,
-                    SessionContext,
-                    _weblogger,
-                    _appConfig,
-                    _httpClientFactory
-                ).TestHandleAsync(new BraveWebSearchParameters
-                {
-                    Operation = BraveWebSearchOperation.BraveWebSearch,
-                    Query = parameters.Query,
-                    Count = parameters.Count ?? 5,
-                    Offset = 0
-                }, cancellationToken).ContinueWith(t =>
-                    ((TextContent)t.Result.Content.First()).Text
-                );
-            }
-
-            var poisTask = BraveSearchRateLimiter.Instance.ExecuteAsync(() => GetPoisDataAsync(locationIds, cancellationToken));
-            var descriptionsTask = BraveSearchRateLimiter.Instance.ExecuteAsync(() => GetDescriptionsDataAsync(locationIds, cancellationToken));
-
-            await Task.WhenAll(poisTask, descriptionsTask);
-            return FormatLocalResults(await poisTask, await descriptionsTask);
-        });
+                Operation = BraveWebSearchOperation.BraveWebSearch,
+                Query = parameters.Query,
+                Count = parameters.Count ?? 5,
+                Offset = 0
+            }, cancellationToken).ContinueWith(t =>
+                ((TextContent)t.Result.Content.First()).Text
+            );
+        }
+        await Task.Delay(1100);
+        var poisTask =  await GetPoisDataAsync(locationIds, cancellationToken);
+        await Task.Delay(1100);
+        var descriptionsTask = await GetDescriptionsDataAsync(locationIds, cancellationToken);
+       
+        return FormatLocalResults(poisTask, descriptionsTask);
+       
     }
 
     private async Task<BravePoiResponse> GetPoisDataAsync(List<string> ids, CancellationToken cancellationToken)

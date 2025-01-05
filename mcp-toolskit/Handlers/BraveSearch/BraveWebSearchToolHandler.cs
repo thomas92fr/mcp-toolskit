@@ -1,6 +1,5 @@
 using mcp_toolskit.Attributes;
 using mcp_toolskit.Extentions;
-using mcp_toolskit.Handlers.BraveSearch.Helpers;
 using mcp_toolskit.Handlers.BraveSearch.Models;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.Logging;
@@ -91,8 +90,7 @@ public class BraveWebSearchToolHandler : ToolHandlerBase<BraveWebSearchParameter
             string result = parameters.Operation switch
             {
                 BraveWebSearchOperation.BraveWebSearch =>
-                    await BraveSearchRateLimiter.Instance.ExecuteAsync(() =>
-                        PerformWebSearchAsync(parameters, cancellationToken)),
+                    await PerformWebSearchAsync(parameters, cancellationToken),
                 _ => throw new ArgumentException($"Unknown operation: {parameters.Operation}")
             };
 
