@@ -7,10 +7,6 @@ mcp-toolskit
         EnumExtensions.cs
     Handlers
         BraveSearch
-            Helpers
-                BraveSearchRateLimiter.cs
-                RateLimiter.cs
-                RetryHandler.cs
             Models
                 BraveSearchModels.cs
             BraveLocalSearchToolHandler.cs

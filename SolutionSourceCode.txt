@@ -70,141 +70,6 @@ namespace mcp_toolskit.Extentions
 </file>
 
 
-<file path="mcp-toolskit\Handlers\BraveSearch\Helpers\BraveSearchRateLimiter.cs">
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-namespace mcp_toolskit.Handlers.BraveSearch.Helpers
-{
-    public static class BraveSearchRateLimiter
-    {
-        public static readonly RateLimiter Instance = new RateLimiter(1, 1000);
-    }
-}
-
-</file>
-
-
-<file path="mcp-toolskit\Handlers\BraveSearch\Helpers\RateLimiter.cs">
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-namespace mcp_toolskit.Handlers.BraveSearch.Helpers
-{
-    public class RateLimiter
-    {
-        private readonly SemaphoreSlim _semaphore;
-        private readonly int _maxParallelism;
-        private readonly int _intervalMs;
-        private DateTime _lastReleaseTime;
-        private readonly object _lock = new();
-        public RateLimiter(int maxParallelism = 1, int intervalMs = 1000)
-        {
-            _maxParallelism = maxParallelism;
-            _intervalMs = intervalMs;
-            _semaphore = new SemaphoreSlim(maxParallelism, maxParallelism);
-            _lastReleaseTime = DateTime.UtcNow;
-        }
-        public async Task&lt;T&gt; ExecuteAsync&lt;T&gt;(Func&lt;Task&lt;T&gt;&gt; action)
-        {
-            await _semaphore.WaitAsync();
-            try
-            {
-                await EnsureIntervalAsync();
-                return await action();
-            }
-            finally
-            {
-                lock (_lock)
-                {
-                    _lastReleaseTime = DateTime.UtcNow;
-                }
-                _semaphore.Release();
-            }
-        }
-        private async Task EnsureIntervalAsync()
-        {
-            TimeSpan elapsedSinceLastRelease;
-            lock (_lock)
-            {
-                elapsedSinceLastRelease = DateTime.UtcNow - _lastReleaseTime;
-            }
-            if (elapsedSinceLastRelease.TotalMilliseconds &lt; _intervalMs)
-            {
-                await Task.Delay(_intervalMs - (int)elapsedSinceLastRelease.TotalMilliseconds);
-            }
-        }
-        public void Dispose()
-        {
-            _semaphore.Dispose();
-        }
-    }
-}
-
-</file>
-
-
-<file path="mcp-toolskit\Handlers\BraveSearch\Helpers\RetryHandler.cs">
-
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
-namespace mcp_toolskit.Handlers.BraveSearch.Helpers
-{
-    public class RetryHandler : DelegatingHandler
-    {
-        private readonly ILogger&lt;RetryHandler&gt; _logger;
-        private readonly int _maxRetries;
-        private readonly int _initialDelayMs;
-        public RetryHandler(ILogger&lt;RetryHandler&gt; logger, int maxRetries = 3, int initialDelayMs = 1000)
-        {
-            _logger = logger;
-            _maxRetries = maxRetries;
-            _initialDelayMs = initialDelayMs;
-        }
-        protected override async Task&lt;HttpResponseMessage&gt; SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            for (int i = 0; i &lt; _maxRetries; i++)
-            {
-                try
-                {
-                    var response = await base.SendAsync(request, cancellationToken);
-                    if (response.StatusCode != HttpStatusCode.TooManyRequests)
-                    {
-                        return response;
-                    }
-                    var retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(Math.Pow(2, i));
-                    _logger.LogWarning(&quot;Rate limit exceeded. Waiting {RetryAfter} before retry {RetryCount}/{MaxRetries}&quot;,
-                        retryAfter, i + 1, _maxRetries);
-                    await Task.Delay(retryAfter, cancellationToken);
-                }
-                catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
-                {
-                    if (i == _maxRetries - 1) throw;
-                    var delay = TimeSpan.FromMilliseconds(_initialDelayMs * Math.Pow(2, i));
-                    _logger.LogWarning(&quot;Rate limit exceeded. Waiting {Delay}ms before retry {RetryCount}/{MaxRetries}&quot;,
-                        delay.TotalMilliseconds, i + 1, _maxRetries);
-                    await Task.Delay(delay, cancellationToken);
-                }
-            }
-            throw new HttpRequestException(&quot;Max retries exceeded&quot;);
-        }
-    }
-}
-
-</file>
-
-
 <file path="mcp-toolskit\Handlers\BraveSearch\Models\BraveSearchModels.cs">
 
 using System.Text.Json.Serialization;
@@ -323,7 +188,6 @@ namespace mcp_toolskit.Handlers.BraveSearch.Models
 
 using mcp_toolskit.Attributes;
 using mcp_toolskit.Extentions;
-using mcp_toolskit.Handlers.BraveSearch.Helpers;
 using mcp_toolskit.Handlers.BraveSearch.Models;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.Logging;
@@ -417,68 +281,67 @@ public class BraveLocalSearchToolHandler : ToolHandlerBase&lt;BraveLocalSearchPa
     }
     private async Task&lt;string&gt; PerformLocalSearchAsync(BraveLocalSearchParameters parameters, CancellationToken cancellationToken)
     {
-        return await BraveSearchRateLimiter.Instance.ExecuteAsync(async () =&gt;
+        var httpClient = _httpClientFactory.CreateClient(&quot;BraveSearch&quot;);
+        httpClient.DefaultRequestHeaders.Add(&quot;X-Subscription-Token&quot;, _appConfig.BraveSearch.ApiKey);
+        var webUrl = new UriBuilder(&quot;https:
+        var webQueryParams = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        webQueryParams[&quot;q&quot;] = parameters.Query;
+        webQueryParams[&quot;search_lang&quot;] = &quot;en&quot;;
+        webQueryParams[&quot;result_filter&quot;] = &quot;locations&quot;;
+        webQueryParams[&quot;count&quot;] = (parameters.Count ?? 5).ToString();
+        webUrl.Query = webQueryParams.ToString();
+        _logger.LogDebug(&quot;Sending request to Brave API: {Url}&quot;, webUrl.Uri);
+        using var request = new HttpRequestMessage(HttpMethod.Get, webUrl.Uri);
+        request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue(&quot;gzip&quot;));
+        using var webResponse = await httpClient.SendAsync(request, cancellationToken);
+        _logger.LogDebug(&quot;Response status: {StatusCode}&quot;, webResponse.StatusCode);
+        webResponse.EnsureSuccessStatusCode();
+        var bytes = await webResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+        string webContent;
+        if (bytes.Length &gt;= 2 &amp;&amp; bytes[0] == 0x1F &amp;&amp; bytes[1] == 0x8B)
         {
-            var httpClient = _httpClientFactory.CreateClient(&quot;BraveSearch&quot;);
-            httpClient.DefaultRequestHeaders.Add(&quot;X-Subscription-Token&quot;, _appConfig.BraveSearch.ApiKey);
-            var webUrl = new UriBuilder(&quot;https:
-            var webQueryParams = System.Web.HttpUtility.ParseQueryString(string.Empty);
-            webQueryParams[&quot;q&quot;] = parameters.Query;
-            webQueryParams[&quot;search_lang&quot;] = &quot;en&quot;;
-            webQueryParams[&quot;result_filter&quot;] = &quot;locations&quot;;
-            webQueryParams[&quot;count&quot;] = (parameters.Count ?? 5).ToString();
-            webUrl.Query = webQueryParams.ToString();
-            _logger.LogDebug(&quot;Sending request to Brave API: {Url}&quot;, webUrl.Uri);
-            using var request = new HttpRequestMessage(HttpMethod.Get, webUrl.Uri);
-            request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue(&quot;gzip&quot;));
-            using var webResponse = await httpClient.SendAsync(request, cancellationToken);
-            _logger.LogDebug(&quot;Response status: {StatusCode}&quot;, webResponse.StatusCode);
-            webResponse.EnsureSuccessStatusCode();
-            var bytes = await webResponse.Content.ReadAsByteArrayAsync(cancellationToken);
-            string webContent;
-            if (bytes.Length &gt;= 2 &amp;&amp; bytes[0] == 0x1F &amp;&amp; bytes[1] == 0x8B)
+            _logger.LogDebug(&quot;Response is GZIP compressed, decompressing...&quot;);
+            using var memoryStream = new MemoryStream(bytes);
+            using var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress);
+            using var decompressedStream = new MemoryStream();
+            await gzipStream.CopyToAsync(decompressedStream, cancellationToken);
+            webContent = Encoding.UTF8.GetString(decompressedStream.ToArray());
+        }
+        else
+        {
+            webContent = Encoding.UTF8.GetString(bytes);
+        }
+        _logger.LogDebug(&quot;Decompressed content: {Content}&quot;,
+            webContent.Length &gt; 500 ? webContent[..500] + &quot;...&quot; : webContent);
+        var braveWeb = JsonSerializer.Deserialize&lt;BraveWeb&gt;(webContent);
+        var locationIds = braveWeb?.Locations?.Results?
+            .Where(r =&gt; !string.IsNullOrEmpty(r.Id))
+            .Select(r =&gt; r.Id)
+            .ToList() ?? new List&lt;string&gt;();
+        if (!locationIds.Any())
+        {
+            await Task.Delay(1100);
+            return await new BraveWebSearchToolHandler(
+                ServerContext,
+                SessionContext,
+                _weblogger,
+                _appConfig,
+                _httpClientFactory
+            ).TestHandleAsync(new BraveWebSearchParameters
             {
-                _logger.LogDebug(&quot;Response is GZIP compressed, decompressing...&quot;);
-                using var memoryStream = new MemoryStream(bytes);
-                using var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress);
-                using var decompressedStream = new MemoryStream();
-                await gzipStream.CopyToAsync(decompressedStream, cancellationToken);
-                webContent = Encoding.UTF8.GetString(decompressedStream.ToArray());
-            }
-            else
-            {
-                webContent = Encoding.UTF8.GetString(bytes);
-            }
-            _logger.LogDebug(&quot;Decompressed content: {Content}&quot;,
-                webContent.Length &gt; 500 ? webContent[..500] + &quot;...&quot; : webContent);
-            var braveWeb = JsonSerializer.Deserialize&lt;BraveWeb&gt;(webContent);
-            var locationIds = braveWeb?.Locations?.Results?
-                .Where(r =&gt; !string.IsNullOrEmpty(r.Id))
-                .Select(r =&gt; r.Id)
-                .ToList() ?? new List&lt;string&gt;();
-            if (!locationIds.Any())
-            {
-                return await new BraveWebSearchToolHandler(
-                    ServerContext,
-                    SessionContext,
-                    _weblogger,
-                    _appConfig,
-                    _httpClientFactory
-                ).TestHandleAsync(new BraveWebSearchParameters
-                {
-                    Operation = BraveWebSearchOperation.BraveWebSearch,
-                    Query = parameters.Query,
-                    Count = parameters.Count ?? 5,
-                    Offset = 0
-                }, cancellationToken).ContinueWith(t =&gt;
-                    ((TextContent)t.Result.Content.First()).Text
-                );
-            }
-            var poisTask = BraveSearchRateLimiter.Instance.ExecuteAsync(() =&gt; GetPoisDataAsync(locationIds, cancellationToken));
-            var descriptionsTask = BraveSearchRateLimiter.Instance.ExecuteAsync(() =&gt; GetDescriptionsDataAsync(locationIds, cancellationToken));
-            await Task.WhenAll(poisTask, descriptionsTask);
-            return FormatLocalResults(await poisTask, await descriptionsTask);
-        });
+                Operation = BraveWebSearchOperation.BraveWebSearch,
+                Query = parameters.Query,
+                Count = parameters.Count ?? 5,
+                Offset = 0
+            }, cancellationToken).ContinueWith(t =&gt;
+                ((TextContent)t.Result.Content.First()).Text
+            );
+        }
+        await Task.Delay(1100);
+        var poisTask =  await GetPoisDataAsync(locationIds, cancellationToken);
+        await Task.Delay(1100);
+        var descriptionsTask = await GetDescriptionsDataAsync(locationIds, cancellationToken);
+        return FormatLocalResults(poisTask, descriptionsTask);
     }
     private async Task&lt;BravePoiResponse&gt; GetPoisDataAsync(List&lt;string&gt; ids, CancellationToken cancellationToken)
     {
@@ -596,7 +459,6 @@ Description: {(descData.Descriptions.TryGetValue(poi.Id, out var description) ? 
 
 using mcp_toolskit.Attributes;
 using mcp_toolskit.Extentions;
-using mcp_toolskit.Handlers.BraveSearch.Helpers;
 using mcp_toolskit.Handlers.BraveSearch.Models;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.Logging;
@@ -676,8 +538,7 @@ public class BraveWebSearchToolHandler : ToolHandlerBase&lt;BraveWebSearchParame
             string result = parameters.Operation switch
             {
                 BraveWebSearchOperation.BraveWebSearch =&gt;
-                    await BraveSearchRateLimiter.Instance.ExecuteAsync(() =&gt;
-                        PerformWebSearchAsync(parameters, cancellationToken)),
+                    await PerformWebSearchAsync(parameters, cancellationToken),
                 _ =&gt; throw new ArgumentException($&quot;Unknown operation: {parameters.Operation}&quot;)
             };
             var content = new TextContent { Text = result };
@@ -4160,17 +4021,12 @@ public class SystemInfoToolHandler : ToolHandlerBase&lt;SystemInfoParameters&gt;
 <file path="mcp-toolskit\Handlers\BraveSearchToolsConfig.cs">
 
 using mcp_toolskit.Handlers.BraveSearch;
-using mcp_toolskit.Handlers.BraveSearch.Helpers;
 using mcp_toolskit.Models;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.NET.Server.Builder;
 using Polly.Extensions.Http;
 using Polly;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using mcp_toolskit.Extentions;
 namespace mcp_toolskit.Handlers
 {
     public class BraveSearchToolsConfig: IModuleConfiguration
@@ -4199,8 +4055,6 @@ namespace mcp_toolskit.Handlers
                 });
             }
             BraveSearchHttpClient.AddPolicyHandler(GetRetryPolicy());  
-            BraveSearchHttpClient.AddHttpMessageHandler&lt;RetryHandler&gt;();
-            services.AddTransient&lt;RetryHandler&gt;();
         }
         private static IAsyncPolicy&lt;HttpResponseMessage&gt; GetRetryPolicy()
         {
